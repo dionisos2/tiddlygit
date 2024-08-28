@@ -1,0 +1,21 @@
+[submodule "plugins_repositories/TW5-dBob"]
+	path = plugins_repositories/TW5-dBob
+	url = https://github.com/OokTech/TW5-Bob.git
+[submodule "plugins_repositories/TW-Trashbin"]
+	path = plugins_repositories/TW-Trashbin
+	url = https://github.com/kookma/TW-Trashbin
+[submodule "plugins_repositories/TW-Commander"]
+	path = plugins_repositories/TW-Commander
+	url = https://github.com/kookma/TW-Commander.git
+[submodule "plugins_repositories/tw5-telmiger-plugins"]
+	path = plugins_repositories/tw5-telmiger-plugins
+	url = https://github.com/rimi/tw5-telmiger-plugins
+[submodule "plugins_repositories/tw5-relink"]
+	path = plugins_repositories/tw5-relink
+	url = https://github.com/flibbles/tw5-relink.git
+[submodule "plugins_repositories/TW5-Bob"]
+	path = plugins_repositories/TW5-Bob
+	url = https://github.com/OokTech/TW5-Bob.git
+[submodule "plugins_repositories/TW-Shiraz"]
+	path = plugins_repositories/TW-Shiraz
+	url = https://github.com/kookma/TW-Shiraz.git

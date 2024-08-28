@@ -1,0 +1,158 @@
+{
+  "editionsPath": "./Editions",
+  "pluginsPath": "./Plugins",
+  "themesPath": "./Themes",
+  "wikisPath": "./Wikis",
+  "wikiPathBase": "cwd",
+  "includePluginList": [],
+  "excludePluginList": [],
+  "autoUnloadWikis": "false",
+  "disableBrowserAlerts": "no",
+  "disableFileWatchers": "no",
+  "fileURLPrefix": "files",
+  "namespacedWikis": "false",
+  "saveMediaOnServer": "yes",
+  "suppressBrowser": "false",
+  "enableFederation": "no",
+  "enableFileServer": "no",
+  "filePathRoot": "./files",
+  "perWikiFiles": "no",
+  "enableBobSaver": "yes",
+  "persistentUsernames": "no",
+  "photoThumbnails": "false",
+  "scripts": {
+    "NewWiki": "tiddlywiki #wikiName --init #editionName",
+    "synchronize": "sh synchronize.sh"
+	},
+  "wikis": {
+    "BobWiki": {
+      "__path": "BobWiki",
+      "plugins": {
+        "TW5-Bob": {
+          "MultiUserWiki": {
+            "__path": "BobWiki/plugins/TW5-Bob/MultiUserWiki"
+          }
+        }
+      }
+    }
+  },
+  "ws-server": {
+    "port": 7070,
+    "host": "127.0.0.1",
+    "autoIncrementPort": false,
+    "servePlugin": "yes",
+    "servePluginWithoutLogin": "yes",
+    "pathprefix": ""
+  },
+  "heartbeat": {
+    "interval": 1000,
+    "timeout": 5000
+  },
+  "mimeMap": {
+    ".aac": "audio/aac",
+    ".avi": "video/x-msvideo",
+    ".bmp": "image/bmp",
+    ".css": "text/css",
+    ".csv": "text/csv",
+    ".doc": "application/msword",
+    ".epub": "application/epub+zip",
+    ".gif": "image/gif",
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".ico": "image/x-icon",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+    ".md": "text/markdown",
+    ".mpeg": "video/mpeg",
+    ".odp": "application/vnd.oasis.opendocument.presentation",
+    ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+    ".odt": "application/vnd.oasis.opendocument.text",
+    ".oga": "audio/ogg",
+    ".ogv": "video/ogg",
+    ".ogx": "application/ogg",
+    ".otf": "font/otf",
+    ".pdf": "application/pdf",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".ttf": "font/ttf",
+    ".txt": "text/plain",
+    ".wav": "audio/wav",
+    ".weba": "audio/weba",
+    ".webm": "video/webm",
+    ".webp": "image/webp",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".xml": "text/xml"
+  },
+  "API": {
+    "enableFetch": "no",
+    "enablePush": "no",
+    "enableDelete": "no",
+    "enableCreate": "no",
+    "pluginLibrary": "no"
+  },
+  "logger": {
+    "useFileLogging": "no",
+    "fileLogLevel": "2",
+    "outputFolder": "./logs",
+    "outputBaseFileName": "Log",
+    "useSeparateErrorFile": "no",
+    "outputErrorFileName": "Error",
+    "ignoreErrors": "yes",
+    "useBrowserLogging": "no",
+    "browserLogLevel": "2",
+    "useConsoleLogging": "yes",
+    "consoleLogLevel": "2"
+  },
+  "federation": {
+    "serverName": "Noh Neigh-m",
+    "mobile": "no",
+    "enableChat": "no",
+    "udpPort": "3232",
+    "enableMulticast": "yes",
+    "multicastAddress": "224.0.0.114",
+    "broadcast": "yes",
+    "rebroadcastInterval": "30000",
+    "checkConnections": "yes"
+  },
+  "advanced": {
+    "localMessageQueueTimeout": 500,
+    "federatedMessageQueueTimeout": 1500,
+    "saveTiddlerDelay": 200
+  },
+  "servingFiles": {},
+  "saver": {
+    "host": "localhost",
+    "port": "61193",
+    "key": "",
+    "disable": "no"
+  },
+  "backups": {
+    "enable": "no",
+    "backupFolder": "./backups",
+    "backupInterval": 600000,
+    "saveOnLoad": "yes",
+    "saveOnModified": "yes",
+    "maxBackups": 10
+  },
+  "pluginLibrary": {
+    "allPublic": "yes"
+  },
+  "editionLibrary": {
+    "allPublic": "yes"
+  },
+  "themeLibrary": {
+    "allPublic": "yes"
+  },
+  "profileOptions": {
+    "allowPublic": "yes",
+    "allowLoggedIn": "yes",
+    "allowPrivate": "yes"
+  },
+  "serverName": "Noh Neigh-m"
+}

@@ -1,0 +1,8 @@
+description: TiddlyWiki5 highlighting mode for CodeMirror
+list: readme ControlPanel
+name: CodeMirror Mode TiddlyWiki5
+parent-plugin: $:/plugins/tiddlywiki/codemirror
+plugin-type: plugin
+title: $:/plugins/Gk0Wk/codemirror-mode-tiddlywiki5
+type: application/json
+version: 0.0.6

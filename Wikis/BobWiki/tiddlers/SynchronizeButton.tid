@@ -1,0 +1,9 @@
+created: 20240204201837820
+modified: 20240217233618246
+tags: $:/tags/PageControls Méta
+title: SynchronizeButton
+
+<$button class=<<tv-config-toolbar-class>> >
+  {{SynchronizeButtonImage}}
+  <$action-websocketmessage $type='runScript' name='synchronize' sequential="true"/>
+</$button>

@@ -1,0 +1,10 @@
+node_modules
+package-lock.json
+package.json
+
+Wikis/BobWiki/plugins
+Wikis/BobWiki/tiddlers/PersonalConfiguration.tid
+Wikis/BobWiki/tiddlers/$__palette.tid
+Wikis/BobWiki/tiddlers/$__theme.tid
+Wikis/BobWiki/tiddlers/$__trashbin*
+Wikis/BobWiki/tiddlers/$__config*
