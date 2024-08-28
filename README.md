@@ -45,3 +45,5 @@ run.sh
 
 Then open http://localhost:7070/ in a WebBrowser.
 (you can change the port in Wikis/BobWiki/settings/settings.json)
+
+Then you can click the button with a GitHub icon to synchronize your work with the remote repository (you should reload the browser page after doing it to get the last modifications).
