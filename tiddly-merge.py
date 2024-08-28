@@ -8,10 +8,13 @@ import subprocess
 
 class Env:
 	def __init__(self, base_path, ours_path, theirs_path, ):
-		self.tid_path = "./Wikis/planning/tiddlers/"
+		self.tid_path = "./Wikis/BobWiki/tiddlers/"
 		self.base_path = base_path
 		self.ours_path = ours_path
 		self.theirs_path = theirs_path
+		print(self.base_path)
+		print(self.ours_path)
+		print(self.theirs_path)
 
 		self.unimp = ["modified",
 									"created",
