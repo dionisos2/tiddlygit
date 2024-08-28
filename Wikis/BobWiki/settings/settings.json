@@ -23,7 +23,7 @@
   "scripts": {
     "NewWiki": "tiddlywiki #wikiName --init #editionName",
     "synchronize": "sh synchronize.sh"
-	},
+  },
   "wikis": {
     "BobWiki": {
       "__path": "BobWiki",
