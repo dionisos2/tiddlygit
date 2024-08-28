@@ -17,13 +17,17 @@ Some particular tiddlers are also completely ignored, see the .gitignore file.
 
 # Installation
 
-Fork https://github.com/dionisos2/tiddlygit on GitHub
-Then `git clone your_fork`
-
-or
+Preferred way :
 
 `git clone https://github.com/dionisos2/tiddlygit.git`
 Then modify tiddlygit/.git/config to change the remote link.
+
+or
+
+Fork https://github.com/dionisos2/tiddlygit on GitHub
+Then `git clone your_fork`
+
+Then
 
 ```
 cd tiddlygit
