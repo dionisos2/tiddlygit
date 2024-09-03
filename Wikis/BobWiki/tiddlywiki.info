@@ -1,7 +1,10 @@
 {
 	"description": "This is the demo edition for the Bob plugin created by OokTech",
 	"plugins": [
-    "OokTech/Bob"
+        "tiddlywiki/tiddlyweb",
+        "tiddlywiki/filesystem",
+        "tiddlywiki/highlight",
+        "tiddlywiki/katex"
 	],
 	"themes": [
 		"tiddlywiki/vanilla",
