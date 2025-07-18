@@ -13,6 +13,7 @@ The goal is to have a button inside the Wiki that you can click to commit and pu
 - press the "github" button - this will pick up any changes on the server
 - wait till the synchronise.sh script has done its work!
 - after pressing the "github" button - refresh the page to pull the latest changes into the browser version of the wiki!
+- note that after synchronization, the server will run in the background, you can use kill_tiddlygit.sh if you and to close it.
 
 ## Notes
 
