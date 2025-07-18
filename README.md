@@ -4,6 +4,15 @@ A TiddlyWiki/TiddlyBob configured to work collaboratively through git.
 I did it for my personal use case, and it is probably not the correct way to do it, but feel free to try it or to take some parts of it as an inspiration.
 The goal is to have a button inside the Wiki that you can click to commit and push your changes and which take care of conflicts.
 
+# Quick guide
+
+- installs TiddlyGit
+- test everything is working with `test.sh`
+- start the server with the `run.sh`
+- navigate to http://127.0.0.1:7070/
+- press the "github" button - this will pick up any changes on the server
+- wait till the synchronise.sh script has done its work!
+- after pressing the "github" button - refresh the page to pull the latest changes into the browser version of the wiki!
 
 ## Notes
 
