@@ -15,6 +15,8 @@ If there is any problem during the synchronization, it will stop, and you will h
 
 Don't hesitate to create an issue if you have a question or if there is any problem.
 
+J’utilise des plugins, comme par exemple "Edit Buttons" de telminger : https://tid.li/tw5/plugins.html#%24%3A%2Fplugins%2Ftelmiger%2FEditButtons
+
 ## Merge and Conflicts
 
 First any conflicts on these fields will simply be ignored: "modified", "created", "nouvelle-tache", "fields-to-show", "date-start", "date-start-temp", "days-count", "days-count-temp", "show-day-record".

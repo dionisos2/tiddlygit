@@ -30,7 +30,7 @@ then
 	git push
 	notify-send "Synchronization successful"
 	echo "run.sh"
-	./run.sh &
+	./run.sh
 else
 	notify-send -u critical "Failed merge : TiddlyWiki serveur stopped"
 fi
