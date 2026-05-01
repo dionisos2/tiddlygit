@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-git submodule add https://github.com/OokTech/TW5-Bob.git plugins_repositories/TW5-Bob
+git submodule add https://github.com/dionisos2/TW5-Bob.git plugins_repositories/TW5-Bob
 git submodule add https://github.com/kookma/TW-Shiraz.git plugins_repositories/TW-Shiraz
 git submodule add https://github.com/flibbles/tw5-relink.git plugins_repositories/tw5-relink
 git submodule add https://github.com/kookma/TW-Trashbin plugins_repositories/TW-Trashbin

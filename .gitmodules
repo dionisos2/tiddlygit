@@ -1,6 +1,6 @@
 [submodule "plugins_repositories/TW5-dBob"]
 	path = plugins_repositories/TW5-dBob
-	url = https://github.com/OokTech/TW5-Bob.git
+	url = https://github.com/dionisos2/TW5-Bob.git
 [submodule "plugins_repositories/TW-Trashbin"]
 	path = plugins_repositories/TW-Trashbin
 	url = https://github.com/kookma/TW-Trashbin

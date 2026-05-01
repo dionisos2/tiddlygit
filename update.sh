@@ -7,7 +7,8 @@ npm --prefix=./ install tiddlywiki
 npm --prefix=./ install node-notifier
 echo "Clone all submodules"
 git submodule init
-git submodule update
+git submodule sync
+git submodule update --remote
 echo "Move submodules into correct directory"
 
 if [ -d ./Wikis/BobWiki/plugins ]
