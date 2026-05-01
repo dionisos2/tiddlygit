@@ -1,5 +1,5 @@
-[submodule "plugins_repositories/TW5-dBob"]
-	path = plugins_repositories/TW5-dBob
+[submodule "plugins_repositories/TW5-Bob"]
+	path = plugins_repositories/TW5-Bob
 	url = https://github.com/dionisos2/TW5-Bob.git
 [submodule "plugins_repositories/TW-Trashbin"]
 	path = plugins_repositories/TW-Trashbin
@@ -13,9 +13,6 @@
 [submodule "plugins_repositories/tw5-relink"]
 	path = plugins_repositories/tw5-relink
 	url = https://github.com/flibbles/tw5-relink.git
-[submodule "plugins_repositories/TW5-Bob"]
-	path = plugins_repositories/TW5-Bob
-	url = https://github.com/OokTech/TW5-Bob.git
 [submodule "plugins_repositories/TW-Shiraz"]
 	path = plugins_repositories/TW-Shiraz
 	url = https://github.com/kookma/TW-Shiraz.git
