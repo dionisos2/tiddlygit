@@ -26,7 +26,7 @@ exports.info = {
 
 function scriptPath() {
 	var path = require("path");
-	return process.env.TIDDLYGIT_SYNC_SCRIPT || path.resolve($tw.boot.wikiPath,"../../synchronize.sh");
+	return process.env.TIDDLYGIT_SYNC_SCRIPT || path.resolve($tw.boot.wikiPath,"../synchronize.sh");
 }
 
 function runScript(script,callback) {

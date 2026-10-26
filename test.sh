@@ -9,7 +9,7 @@ CLONE="$WORKDIR/tiddlygit"
 
 kill_tiddlywiki() {
 	echo "Killing tiddlywiki.jl"
-  pid=$(pgrep -of "node ./node_modules/tiddlywiki/tiddlywiki.js Wikis/BobWiki/ --listen")
+  pid=$(pgrep -of "node ./node_modules/tiddlywiki/tiddlywiki.js wiki/ --listen")
   if [ -n "$pid" ]; then
     kill "$pid"
   else
@@ -66,7 +66,7 @@ echo "🧪 Creating conflict management"
 
 cd "$CLONE"
 # Create a test tiddler
-printf "\n\nbob conflict" >> Wikis/BobWiki/tiddlers/test.tid
+printf "\n\nbob conflict" >> wiki/tiddlers/test.tid
 
 # 1st synchronization (initial push)
 ./synchronize.sh
@@ -75,7 +75,7 @@ printf "\n\nbob conflict" >> Wikis/BobWiki/tiddlers/test.tid
 git reset --hard HEAD^
 
 # Simulate conflict
-printf "\n\ninstance conflict" >> Wikis/BobWiki/tiddlers/test.tid
+printf "\n\ninstance conflict" >> wiki/tiddlers/test.tid
 
 # 2nd call => should trigger a conflict
 ./synchronize.sh || true
@@ -83,7 +83,7 @@ kill_tiddlywiki
 
 # 🕵️‍♂️ Verify the file created by tiddly-merge
 echo "📁 Searching for tiddlers tagged with GitConflict..."
-CONFLICT_FILES=$(grep -lR "GitConflict" Wikis/BobWiki/tiddlers/ | grep -v "/GitConflict.tid$" || true)
+CONFLICT_FILES=$(grep -lR "GitConflict" wiki/tiddlers/ | grep -v "/GitConflict.tid$" || true)
 
 if [[ -z "${CONFLICT_FILES:-}" ]]; then
   echo "❌ No tiddler with GitConflict tag found — merge driver did not work"

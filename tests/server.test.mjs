@@ -174,6 +174,8 @@ async function tiddlerOnDisk(wikiDir, title) {
   return files.flatMap((file) => file.tiddlers).find((fields) => fields.title === title);
 }
 
+// Like in the TiddlyGit repository, the wiki folder is next to synchronize.sh
+let rootDir;
 let wikiDir;
 let server;
 
@@ -184,14 +186,15 @@ async function startServer(env = {}) {
 
 // Each test gets its own wiki and server.
 beforeEach(() => {
-  wikiDir = fs.mkdtempSync(path.join(os.tmpdir(), "tiddlygit-wiki-"));
+  rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "tiddlygit-repo-"));
+  wikiDir = path.join(rootDir, "wiki");
   createWiki(wikiDir);
 });
 
 afterEach(async () => {
   await server?.stop();
   server = null;
-  fs.rmSync(wikiDir, { recursive: true, force: true });
+  fs.rmSync(rootDir, { recursive: true, force: true });
 });
 
 after(() => {
@@ -312,6 +315,15 @@ test("the synchronize route runs the script and returns its result", async () =>
   const result = await response.json();
   assert.equal(result.code, 3);
   assert.match(result.output, new RegExp("hello from " + wikiDir));
+});
+
+test("the synchronize route runs the synchronize.sh next to the wiki folder by default", async () => {
+  fs.writeFileSync(path.join(rootDir, "synchronize.sh"), '#!/usr/bin/env bash\necho "default script in $PWD"\n', { mode: 0o755 });
+  await startServer();
+
+  const result = await (await server.synchronize()).json();
+  assert.equal(result.code, 0);
+  assert.equal(result.output, `default script in ${rootDir}\n`);
 });
 
 test("the synchronize route requires the TiddlyWiki CSRF header", async () => {

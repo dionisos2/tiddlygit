@@ -58,7 +58,7 @@ To test that everything will work correctly on your computer, run the command `.
 
 ```console
 ✅ Merge driver generated the following files:
-Wikis/BobWiki/tiddlers/test-766755633815162457.tid
+wiki/tiddlers/test-766755633815162457.tid
 Deleting /home/dionisos/projets/programmation/tiddlygit/test_tmp
 Terminated
 ✅ Test completed successfully
@@ -98,6 +98,28 @@ git fetch upstream
 git merge upstream/master
 update.sh
 ```
+
+### Coming from the old `Wikis/<name>/` layout (Bob plugin)
+
+The wiki is now in the `wiki/` folder (`wiki/tiddlywiki.info`, `wiki/tiddlers/`), like a basic node.js TiddlyWiki. To convert a wiki in the old layout, stop the server (`pkill -f "tiddlywiki.js Wikis/"`), commit your changes, then:
+
+```
+git fetch upstream
+git -c merge.directoryRenames=true merge upstream/master
+./convert_wiki_folder.sh
+git commit -m "Move the wiki to wiki/"
+./update.sh
+```
+
+`merge.directoryRenames=true` lets git move the tiddlers you created to `wiki/tiddlers/` during the merge. `convert_wiki_folder.sh` then:
+- moves the remaining files, including the local files ignored by git (`PersonalConfiguration.tid`, `$:/config/...`),
+- keeps your `tiddlywiki.info`,
+- removes what belonged to Bob (`settings/`, `$:/Bob/EditingTiddlers`...),
+- updates `.gitignore`.
+
+If you have several wikis in `Wikis/`, give the one to convert: `./convert_wiki_folder.sh Wikis/<name>`.
+If a file exists in both folders with a different content, the script stops without changing anything and lists these files.
+The git history of a tiddler is still available with `git log --follow wiki/tiddlers/<file>`.
 
 # Usage
 
