@@ -1,0 +1,13 @@
+title: $:/plugins/dionisos/tiddlygit/synchronize-actions
+tags: $:/tags/Global
+
+\procedure tiddlygit-synchronize-done()
+<$action-setfield $tiddler="$:/temp/tiddlygit/synchronize" status=<<status>> code={{{ [<data>jsonget[code]] }}} text={{{ [<data>jsonget[output]] }}}/>
+<$action-sendmessage $message="tm-server-refresh"/>
+<$action-sendmessage $message="tm-notify" $param="$:/plugins/dionisos/tiddlygit/synchronize-notification"/>
+\end
+
+\procedure tiddlygit-synchronize-actions()
+<$action-setfield $tiddler="$:/temp/tiddlygit/synchronize" status="running" code="" text=""/>
+<$action-sendmessage $message="tm-http-request" url="/tiddlygit/synchronize" method="POST" header-X-Requested-With="TiddlyWiki" oncompletion=<<tiddlygit-synchronize-done>>/>
+\end

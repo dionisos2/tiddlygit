@@ -1,5 +1,5 @@
 {
-	"description": "This is the demo edition for the Bob plugin created by OokTech",
+	"description": "TiddlyGit wiki",
 	"plugins": [
         "tiddlywiki/tiddlyweb",
         "tiddlywiki/filesystem",

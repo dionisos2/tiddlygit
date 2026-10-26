@@ -9,7 +9,7 @@ CLONE="$WORKDIR/tiddlygit"
 
 kill_tiddlywiki() {
 	echo "Killing tiddlywiki.jl"
-  pid=$(pgrep -ofa -x "node ./node_modules/tiddlywiki/tiddlywiki.js Wikis/BobWiki/ --wsserver" | cut -d" " -f 1)
+  pid=$(pgrep -of "node ./node_modules/tiddlywiki/tiddlywiki.js Wikis/BobWiki/ --listen")
   if [ -n "$pid" ]; then
     kill "$pid"
   else
@@ -70,8 +70,6 @@ printf "\n\nbob conflict" >> Wikis/BobWiki/tiddlers/test.tid
 
 # 1st synchronization (initial push)
 ./synchronize.sh
-sleep 2
-kill_tiddlywiki
 
 # Reset to previous HEAD state
 git reset --hard HEAD^
@@ -80,8 +78,7 @@ git reset --hard HEAD^
 printf "\n\ninstance conflict" >> Wikis/BobWiki/tiddlers/test.tid
 
 # 2nd call => should trigger a conflict
-./synchronize.sh
-sleep 2
+./synchronize.sh || true
 kill_tiddlywiki
 
 # 🕵️‍♂️ Verify the file created by tiddly-merge

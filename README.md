@@ -1,6 +1,6 @@
 # Introduction
 
-A TiddlyWiki/TiddlyBob configured to work collaboratively through git.
+A TiddlyWiki configured to work collaboratively through git.
 I did it for my personal use case, and it is probably not the correct way to do it, but feel free to try it or to take some parts of it as an inspiration.
 The goal is to have a button inside the Wiki that you can click to commit and push your changes and which take care of conflicts.
 
@@ -10,18 +10,16 @@ The goal is to have a button inside the Wiki that you can click to commit and pu
 - test everything is working with `test.sh`
 - start the server with the `run.sh`
 - navigate to http://127.0.0.1:7070/
-- press the "github" button - this will pick up any changes on the server
-- wait till the synchronise.sh script has done its work!
-- after pressing the "github" button - refresh the page to pull the latest changes into the browser version of the wiki!
-- note that after synchronization, the server will run in the background, you can use kill_tiddlygit.sh if you and to close it.
+- press the "github" button - this will commit your changes, merge the changes of the other contributors and push them
+- a notification tells you when the synchronization is done, the merged changes appear in the browser without reloading the page
 
 ## Notes
 
-The TiddlyWiki server will be closed and restarted each time you use the synchronization button. This was necessary because otherwise the Bob plugin could modify the files during the git commands, leading to data lost.
+The server is the TiddlyWiki node.js server (`--listen`), with the tiddlygit plugin (see `tiddlygit-plugin/`) which:
+- loads the tiddler files created, modified or deleted on disk (by a text editor, git...), they reach the browser within 5 seconds,
+- runs `synchronize.sh` when the synchronization button is pressed. The server doesn't write any file while the script runs, and reloads the files changed by git when it ends.
 
-After a completed synchronization, you should reload the browser page (F5) to get the last changes loaded inside it.
-
-If there is any problem during the synchronization, it will stop, and you will have to look inside the console what is happening with git.
+If there is any problem during the synchronization, the notification says so, and the output of git is in the `$:/temp/tiddlygit/synchronize` tiddler.
 
 Don't hesitate to create an issue if you have a question or if there is any problem.
 
@@ -71,7 +69,7 @@ PID not found
 
 If the test doesn't complete successfully, please verify the dependencies, and then create an issue.
 
-The file synchronization of the Bob plugin is tested with `node --test tests/` (it needs the `plugins_repositories/TW5-Bob` submodule, or a `BOB_PATH` environment variable pointing to a Bob plugin folder).
+The server and the tiddlygit plugin are tested with `node --test tests/`.
 
 # Installation
 
@@ -126,6 +124,6 @@ git config credential.helper 'cache --timeout=3600'
 ## Starting the server
 
 Then start the server with `run.sh` and  open http://localhost:7070/ in a WebBrowser.
-(you can change the port in Wikis/BobWiki/settings/settings.json)
+(you can change the port in run.sh)
 
-While you are working on your wiki, you can click the button with a GitHub icon to synchronize your work with the remote repository (you should reload the browser page after doing it to get the last modifications).
+While you are working on your wiki, you can click the button with a GitHub icon to synchronize your work with the remote repository.

@@ -1,0 +1,4 @@
+title: $:/plugins/dionisos/tiddlygit/readme
+
+* Tiddler files created, modified or deleted on disk (by a text editor, git...) are loaded by the server, and reach the browser within a few seconds.
+* The <<tiddlygit-synchronize-actions>> procedure runs `synchronize.sh` on the server, see the `SynchronizeButton` tiddler.

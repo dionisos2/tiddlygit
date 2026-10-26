@@ -1,0 +1,9 @@
+{
+	"title": "$:/plugins/dionisos/tiddlygit",
+	"name": "TiddlyGit",
+	"description": "Reload tiddler files changed on disk and synchronize the wiki with git",
+	"author": "dionisos",
+	"core-version": ">=5.3.0",
+	"plugin-type": "plugin",
+	"list": "readme"
+}

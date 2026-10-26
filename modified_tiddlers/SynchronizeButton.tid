@@ -5,5 +5,5 @@ title: SynchronizeButton
 
 <$button class=<<tv-config-toolbar-class>> >
   {{SynchronizeButtonImage}}
-  <$action-websocketmessage $type='runScript' name='synchronize' sequential="true"/>
+  <<tiddlygit-synchronize-actions>>
 </$button>
