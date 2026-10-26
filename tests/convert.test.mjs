@@ -16,6 +16,15 @@ const script = path.join(repoRoot, "convert_wiki_folder.sh");
 
 const OLD_INFO = JSON.stringify({ description: "Bob demo", plugins: ["tiddlywiki/tiddlyweb", "tiddlywiki/filesystem", "tiddlywiki/katex"] }, null, 2);
 
+const OLD_BUTTON = `created: 20240204201837820
+tags: $:/tags/PageControls Méta
+title: SynchronizeButton
+
+<$button class=<<tv-config-toolbar-class>> >
+  {{SynchronizeButtonImage}}
+  <$action-websocketmessage $type='runScript' name='synchronize' sequential="true"/>
+</$button>`;
+
 let repo;
 
 function git(...args) {
@@ -58,6 +67,8 @@ function createOldRepo(name = "planning") {
   write(`${wiki}/tiddlers/$__plugins_OokTech_Bob_NodeScriptHandlers.js.meta`, "title: $:/plugins/OokTech/Bob/NodeScriptHandlers.js\n");
   write(`${wiki}/settings/settings.json`, "{}");
   write(`${wiki}/example-start-script.sh`, "tiddlywiki --wsserver");
+  write(`${wiki}/tiddlers/SynchronizeButton.tid`, OLD_BUTTON);
+  write(`${wiki}/tiddlers/Other button.tid`, "title: Other button\n\n<$action-websocketmessage $type='ping'/>");
   write(`${wiki}/jours_feries.js`, "// holidays");
   write(`${wiki}/ressources/image.svg`, "<svg/>");
   git("add", "-A");
@@ -122,6 +133,18 @@ test("removes what belonged to Bob", () => {
   assert.ok(exists("wiki/plugins/tw5-relink/plugin.info"), "other plugins are kept");
 });
 
+test("makes the synchronize button use the server instead of Bob", () => {
+  createOldRepo();
+  const result = convert();
+  assert.equal(result.status, 0, result.stderr);
+
+  assert.equal(read("wiki/tiddlers/SynchronizeButton.tid"),
+    OLD_BUTTON.replace(`<$action-websocketmessage $type='runScript' name='synchronize' sequential="true"/>`, "<<tiddlygit-synchronize-actions>>"));
+  assert.equal(git("status", "--porcelain", "--", "wiki/tiddlers/SynchronizeButton.tid").slice(1, 2), " ", "the change is staged");
+  // Other uses of Bob's websocket messages cannot be converted automatically
+  assert.match(result.stdout, /Other button\.tid/);
+});
+
 test("updates .gitignore and stops tracking the story list", () => {
   createOldRepo();
   assert.equal(convert().status, 0);
@@ -178,6 +201,8 @@ test("needs the wiki folder when there are several wikis", () => {
 // After merging the new version of TiddlyGit, wiki/ already holds the template
 // tiddlers, while the tiddlers created by the user are still in Wikis/<name>/.
 function mergeUpstreamLayout() {
+  // Git already moved the tiddlers it knows from both sides, like the button
+  git("rm", "-q", "Wikis/planning/tiddlers/SynchronizeButton.tid");
   write("wiki/tiddlywiki.info", '{"description": "TiddlyGit wiki"}');
   write("wiki/tiddlers/SynchronizeButton.tid", "title: SynchronizeButton\n\nnew button");
   write("wiki/tiddlers/A.tid", "title: A\n\nalpha");

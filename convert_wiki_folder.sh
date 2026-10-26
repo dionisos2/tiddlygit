@@ -141,6 +141,24 @@ else
 fi
 rmdir Wikis 2> /dev/null || true
 
+# --- Make the synchronize button use the server instead of Bob's websocket
+
+while IFS= read -r -d '' file; do
+	if grep -q "<\$action-websocketmessage[^>]*name=['\"]synchronize['\"]" "$file"; then
+		echo "Updating the synchronize button in $file"
+		sed -i "s|<\$action-websocketmessage[^>]*name=['\"]synchronize['\"][^>]*/>|<<tiddlygit-synchronize-actions>>|" "$file"
+		if is_tracked "$file"; then
+			git add -- "$file"
+		fi
+	fi
+done < <(find "$NEW/tiddlers" -type f -name "*.tid" -print0)
+
+others=$(grep -rl "action-websocketmessage" "$NEW/tiddlers" || true)
+if [ -n "$others" ]; then
+	echo "Warning: these tiddlers still use Bob's websocket messages, which do nothing now:"
+	echo "$others" | sed 's/^/  /'
+fi
+
 # --- Update .gitignore
 
 if [ -f .gitignore ]; then

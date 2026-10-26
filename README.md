@@ -121,6 +121,7 @@ git commit -m "Move the wiki to wiki/"
 - moves the remaining files, including the local files ignored by git (`PersonalConfiguration.tid`, `$:/config/...`),
 - keeps your `tiddlywiki.info`,
 - removes what belonged to Bob (`settings/`, `$:/Bob/EditingTiddlers`...),
+- makes your `SynchronizeButton` use the server instead of Bob (your tags and other changes are kept), and lists the other tiddlers using Bob's websocket messages,
 - updates `.gitignore`.
 
 If you have several wikis in `Wikis/`, give the one to convert: `./convert_wiki_folder.sh Wikis/<name>`.
