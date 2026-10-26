@@ -35,7 +35,7 @@ The tiddler files (.tid and .json) are merged field by field by tiddly-merge.py:
 Then, any tiddler with remaining conflicts will be duplicated (one for each version), with added link at the bottom in each one referencing the other one, they will also be tagged with the GitConflict tag.
 You can then simply remove/edit these tiddlers before commiting/pushing again with the GitHub button.
 
-The other .json files are merged line by line, like git does by default.
+The other .json files are merged structurally: objects key by key, arrays element by element and strings line by line. When this is not possible (conflict, or formatting that cannot be kept), they are merged line by line like git does by default.
 
 Some particular tiddlers are also completely ignored, see the .gitignore file.
 

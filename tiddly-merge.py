@@ -10,7 +10,9 @@ When both sides changed the same field differently, our version is kept, and
 their version is saved as a new tiddler tagged GitConflict, each one linking to
 the other. Conflicts on unimportant fields are ignored (our value is kept).
 
-Files that are not tiddlers (like plugin .json files) are merged line by line,
+Other .json files (like plugins) are merged structurally: objects key by key,
+arrays element by element and strings line by line. When this is not possible
+(conflict, or formatting that cannot be kept), files are merged line by line
 like git does by default.
 """
 
@@ -102,6 +104,82 @@ def merge_lines(base, ours, theirs):
 	return result.stdout.decode("utf-8") if result.returncode == 0 else None
 
 
+class MergeConflict(Exception):
+	pass
+
+
+# A key missing from a json object
+MISSING = object()
+
+
+def same(a, b):
+	"""Strict json equality (in Python, True == 1)."""
+	if a is MISSING or b is MISSING:
+		return a is b
+	return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def merge_values(base, ours, theirs):
+	"""Three-way merge of json values, raise MergeConflict when it is not possible."""
+	if same(ours, theirs) or same(theirs, base):
+		return ours
+	if same(ours, base):
+		return theirs
+	if isinstance(ours, dict) and isinstance(theirs, dict):
+		base = base if isinstance(base, dict) else {}
+		merged = {}
+		for key in dict.fromkeys(list(ours) + list(theirs)):
+			value = merge_values(base.get(key, MISSING), ours.get(key, MISSING), theirs.get(key, MISSING))
+			if value is not MISSING:
+				merged[key] = value
+		return merged
+	if isinstance(ours, str) and isinstance(theirs, str):
+		merged = merge_lines(base if isinstance(base, str) else "", ours, theirs)
+		if merged is None:
+			raise MergeConflict()
+		return merged
+	if isinstance(ours, list) and isinstance(theirs, list):
+		# Merge the elements like lines (a compact json value has no line break)
+		def as_lines(values):
+			return "".join(json.dumps(value, ensure_ascii=False) + "\n" for value in values)
+		merged = merge_lines(as_lines(base if isinstance(base, list) else []), as_lines(ours), as_lines(theirs))
+		if merged is None:
+			raise MergeConflict()
+		return [json.loads(line) for line in merged.splitlines()]
+	raise MergeConflict()
+
+
+def json_format(content):
+	"""Return the json.dumps options and the ending reproducing content exactly, or None."""
+	data = json.loads(content)
+	ending = content[len(content.rstrip("\n")):]
+	for ensure_ascii in (False, True):
+		for indent in (4, 2, "\t", None, 1, 3, 8):
+			options = {"indent": indent, "ensure_ascii": ensure_ascii}
+			if indent is None:
+				options["separators"] = (",", ":")
+			if json.dumps(data, **options) + ending == content:
+				return options, ending
+	return None
+
+
+def merge_json_file(base_content, ours_content, theirs_content):
+	"""
+	Merge json files structurally, return the result or None when it is not
+	possible (invalid json, conflict, or formatting that cannot be kept).
+	"""
+	try:
+		result_format = json_format(ours_content)
+		if result_format is None:
+			return None
+		base = json.loads(base_content) if base_content.strip() else MISSING
+		merged = merge_values(base, json.loads(ours_content), json.loads(theirs_content))
+	except (ValueError, MergeConflict):
+		return None
+	options, ending = result_format
+	return json.dumps(merged, **options) + ending
+
+
 def merge_fields(base, ours, theirs):
 	"""
 	Merge the fields of three versions of a tiddler.
@@ -162,8 +240,14 @@ def merge_tiddler_file(base_path, ours_path, theirs_path):
 	ours, theirs = parse(ours_content), parse(theirs_content)
 	base = parse(base_content) if base_content.strip() else (TID, {})
 	if ours is None or theirs is None or base is None:
-		# Not a tiddler file, do what git does by default
-		return subprocess.run(["git", "merge-file", ours_path, base_path, theirs_path]).returncode
+		# Not a tiddler file
+		merged = merge_json_file(base_content, ours_content, theirs_content)
+		if merged is None:
+			# Do what git does by default
+			return subprocess.run(["git", "merge-file", ours_path, base_path, theirs_path]).returncode
+		with open(ours_path, "w") as file:
+			file.write(merged)
+		return 0
 
 	file_format = ours[0]
 	merged, conflicts = merge_fields(base[1], ours[1], theirs[1])

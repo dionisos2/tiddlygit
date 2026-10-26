@@ -143,25 +143,70 @@ test("json: unimportant fields changed on both sides keep our value", () => {
   assert.deepEqual(conflictFiles(), []);
 });
 
-test("json: other json files are merged line by line", () => {
-  const base = JSON.stringify({ tiddlers: { a: { text: "a" }, b: { text: "b" }, c: { text: "c" } } }, null, 4);
+// --- Other .json files -------------------------------------------------------------
+
+const plugin = (tiddlers, extra = {}) => ({ title: "$:/plugins/x", tiddlers, ...extra });
+const pluginTiddlers = { a: { caption: "A", text: "a" }, b: { text: "b" } };
+
+test("json: changes to different keys of other json files are merged, even on adjacent lines", () => {
   const result = mergeScenario(
-    { "plugin.json": base },
-    { "plugin.json": base.replace('"a"', '"a, ours"') },
-    { "plugin.json": base.replace('"c"', '"c, theirs"') },
+    { "plugin.json": JSON.stringify(plugin(pluginTiddlers), null, 4) },
+    { "plugin.json": JSON.stringify(plugin({ ...pluginTiddlers, a: { caption: "A, ours", text: "a" } }), null, 4) },
+    { "plugin.json": JSON.stringify(plugin({ ...pluginTiddlers, a: { caption: "A", text: "a, theirs" }, d: { text: "d" } }), null, 4) },
   );
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.equal(read("plugin.json"), base.replace('"a"', '"a, ours"').replace('"c"', '"c, theirs"'));
+  assert.equal(read("plugin.json"),
+    JSON.stringify(plugin({ a: { caption: "A, ours", text: "a, theirs" }, b: { text: "b" }, d: { text: "d" } }), null, 4));
+});
 
-  git("reset", "-q", "--hard", "HEAD~1");
-  write("plugin.json", base.replace('"b"', '"b, ours"'));
-  git("commit", "-q", "-am", "ours again");
-  git("checkout", "-q", "theirs");
-  write("plugin.json", base.replace('"b"', '"b, theirs"'));
-  git("commit", "-q", "-am", "theirs again");
-  git("checkout", "-q", "main");
-  const conflicting = spawnSync("git", ["merge", "--no-edit", "theirs"], { cwd: repo, encoding: "utf8" });
-  assert.notEqual(conflicting.status, 0, "an overlapping change must be reported as a conflict");
+test("json: strings changed on both sides are merged line by line", () => {
+  const result = mergeScenario(
+    { "data.json": JSON.stringify({ code: "line 1\nline 2\nline 3\nline 4" }) },
+    { "data.json": JSON.stringify({ code: "line 1, ours\nline 2\nline 3\nline 4" }) },
+    { "data.json": JSON.stringify({ code: "line 1\nline 2\nline 3\nline 4, theirs" }) },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("data.json"), JSON.stringify({ code: "line 1, ours\nline 2\nline 3\nline 4, theirs" }));
+});
+
+test("json: the formatting of other json files is kept", () => {
+  const base = { list: [1, 2], name: "x", other: "y" };
+  const result = mergeScenario(
+    { "data.json": JSON.stringify(base, null, "\t") + "\n" },
+    { "data.json": JSON.stringify({ ...base, name: "ours" }, null, "\t") + "\n" },
+    { "data.json": JSON.stringify({ ...base, other: "theirs" }, null, "\t") + "\n" },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("data.json"), JSON.stringify({ ...base, name: "ours", other: "theirs" }, null, "\t") + "\n");
+});
+
+test("json: a value changed differently on both sides of other json files is a conflict", () => {
+  const result = mergeScenario(
+    { "data.json": JSON.stringify({ a: "base", b: "b" }, null, 2) },
+    { "data.json": JSON.stringify({ a: "ours", b: "b" }, null, 2) },
+    { "data.json": JSON.stringify({ a: "theirs", b: "b" }, null, 2) },
+  );
+  assert.notEqual(result.status, 0, "the conflict must be reported to git");
+  assert.match(read("data.json"), /<<<<<<<[^]*"ours"[^]*"theirs"/);
+});
+
+test("json: arrays changed on both sides are merged element by element", () => {
+  const result = mergeScenario(
+    { "data.json": JSON.stringify({ list: [1, 2, 3] }) },
+    { "data.json": JSON.stringify({ list: [0, 1, 2, 3] }) },
+    { "data.json": JSON.stringify({ list: [1, 2, 3, { four: 4 }] }) },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("data.json"), JSON.stringify({ list: [0, 1, 2, 3, { four: 4 }] }));
+});
+
+test("json: an array element changed differently on both sides is a conflict", () => {
+  const result = mergeScenario(
+    { "data.json": JSON.stringify({ list: [1, 2, 3] }) },
+    { "data.json": JSON.stringify({ list: [1, "ours", 3] }) },
+    { "data.json": JSON.stringify({ list: [1, "theirs", 3] }) },
+  );
+  assert.notEqual(result.status, 0, "the conflict must be reported to git");
 });
 
 // --- .tid tiddlers ----------------------------------------------------------------
