@@ -109,6 +109,27 @@ git merge upstream/master
 update.sh
 ```
 
+### If git refuses to merge unrelated histories
+
+If your repository was created from a copy of TiddlyGit instead of a clone or a fork, it doesn't share its history with TiddlyGit, and `git merge upstream/master` fails with `fatal: refusing to merge unrelated histories`. Join the histories once, after committing your changes and stopping the server:
+
+```
+git fetch upstream
+git show upstream/master:join_upstream.sh > /tmp/join_upstream.sh
+bash /tmp/join_upstream.sh upstream/master
+git diff --cached HEAD
+git commit
+./update.sh
+```
+
+`join_upstream.sh`:
+- converts your wiki to the `wiki/` folder if needed (see below) and commits it,
+- merges TiddlyGit, keeping your wiki but taking the TiddlyGit files (scripts, plugin, merge driver...) from upstream: if you modified some of them, check `git diff --cached HEAD` before committing,
+- removes the files TiddlyGit deleted (like the Bob plugin), unless you modified them,
+- merges `.gitignore`, and adds the tiddlers TiddlyGit needs if you don't have them (`SynchronizeButton`, `SynchronizeButtonImage`, `GitConflict`).
+
+The merge is left uncommitted so that you can review it. Later updates are normal merges (`git merge upstream/master`).
+
 ### Coming from the old `Wikis/<name>/` layout (Bob plugin)
 
 The wiki is now in the `wiki/` folder (`wiki/tiddlywiki.info`, `wiki/tiddlers/`), like a basic node.js TiddlyWiki. To convert a wiki in the old layout, stop the server (`pkill -f "tiddlywiki.js Wikis/"`), commit your changes, then:
