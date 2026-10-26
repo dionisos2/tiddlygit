@@ -4,6 +4,10 @@ A TiddlyWiki configured to work collaboratively through git.
 I did it for my personal use case, and it is probably not the correct way to do it, but feel free to try it or to take some parts of it as an inspiration.
 The goal is to have a button inside the Wiki that you can click to commit and push your changes and which take care of conflicts.
 
+**TiddlyGit no longer uses the Bob plugin ([TW5-Bob](https://github.com/OokTech/TW5-Bob)).** Bob is not maintained anymore, and its file watcher could delete a tiddler while you were typing in a form (without going through the trashbin).
+TiddlyGit now uses the TiddlyWiki node.js server (`--listen`), with a small plugin of its own (see the notes below).
+If your wiki is still in the old `Wikis/<name>/` layout used with Bob, see [Coming from the old layout](#coming-from-the-old-wikisname-layout-bob-plugin) to convert it.
+
 # Quick guide
 
 - installs TiddlyGit
@@ -23,7 +27,7 @@ If there is any problem during the synchronization, the notification says so, an
 
 Don't hesitate to create an issue if you have a question or if there is any problem.
 
-J’utilise des plugins, comme par exemple "Edit Buttons" de telminger : https://tid.li/tw5/plugins.html#%24%3A%2Fplugins%2Ftelmiger%2FEditButtons
+`update.sh` also installs some plugins I use: [Relink](https://flibbles.github.io/tw5-relink/), [Edit Buttons](https://tid.li/tw5/plugins.html#%24%3A%2Fplugins%2Ftelmiger%2FEditButtons) by telmiger, and [Shiraz](https://kookma.github.io/TW-Shiraz/), [Trashbin](https://kookma.github.io/TW-Trashbin/) and [Commander](https://github.com/kookma/TW-Commander) by kookma.
 
 ## Merge and Conflicts
 
@@ -33,7 +37,7 @@ The tiddler files (.tid and .json) are merged field by field by tiddly-merge.py:
 - conflicts on these unimportant fields are ignored (your value is kept): "modified", "created", "nouvelle-tache", "fields-to-show", "date-start", "date-start-temp", "days-count", "days-count-temp", "show-day-record".
 
 Then, any tiddler with remaining conflicts will be duplicated (one for each version), with added link at the bottom in each one referencing the other one, they will also be tagged with the GitConflict tag.
-You can then simply remove/edit these tiddlers before commiting/pushing again with the GitHub button.
+You can then simply remove/edit these tiddlers before committing/pushing again with the GitHub button.
 
 TiddlyWiki saves a tiddler as .json when one of its fields has leading or trailing spaces. The tiddlygit plugin then keeps it as .json, and synchronize.sh merges a tiddler saved as .json on one side and as .tid on the other (`tiddly-merge.py --resolve-format-changes`).
 
@@ -60,7 +64,7 @@ Some particular tiddlers are also completely ignored, see the .gitignore file.
 
 # Test
 
-To test that everything will work correctly on your computer, run the command `./test.sh`, it should end with these messages :
+To test that everything will work correctly on your computer, run the command `./test.sh`, it should end with these messages:
 
 ```console
 ✅ Merge driver generated the following files:
@@ -79,7 +83,7 @@ The server and the tiddlygit plugin are tested with `node --test tests/`.
 
 # Installation
 
-Preferred way :
+Preferred way:
 
 `git clone https://github.com/dionisos2/tiddlygit.git`
 Then modify tiddlygit/.git/config to change the remote link.
@@ -144,7 +148,7 @@ git config --global credential.helper store
 ```
 This will create a `~/.git-credentials` where the password is in clear (https://git-scm.com/docs/gitcredentials).
 
-If you don't want your password to be stored in plain text, you can use this instead :
+If you don't want your password to be stored in plain text, you can use this instead:
 
 ```
 git config credential.helper 'cache --timeout=3600'
@@ -152,7 +156,7 @@ git config credential.helper 'cache --timeout=3600'
 
 ## Starting the server
 
-Then start the server with `run.sh` and  open http://localhost:7070/ in a WebBrowser.
+Then start the server with `run.sh` and open http://localhost:7070/ in a web browser.
 (you can change the port in run.sh)
 
 While you are working on your wiki, you can click the button with a GitHub icon to synchronize your work with the remote repository.
