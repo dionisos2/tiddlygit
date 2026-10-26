@@ -1,1 +1,2 @@
 *.tid merge=tiddly-merge
+*.json merge=tiddly-merge

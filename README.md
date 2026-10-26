@@ -27,11 +27,15 @@ J’utilise des plugins, comme par exemple "Edit Buttons" de telminger : https:/
 
 ## Merge and Conflicts
 
-First any conflicts on these fields will simply be ignored: "modified", "created", "nouvelle-tache", "fields-to-show", "date-start", "date-start-temp", "days-count", "days-count-temp", "show-day-record".
-(see tiddly-merge.py)
-The goal is to avoid useless conflicts for unimportant field (in particular the field "modified")
+The tiddler files (.tid and .json) are merged field by field by tiddly-merge.py:
+- a field changed on one side only takes the value of that side, even when both sides changed other fields,
+- when both sides changed the text, it is merged line by line,
+- conflicts on these unimportant fields are ignored (your value is kept): "modified", "created", "nouvelle-tache", "fields-to-show", "date-start", "date-start-temp", "days-count", "days-count-temp", "show-day-record".
+
 Then, any tiddler with remaining conflicts will be duplicated (one for each version), with added link at the bottom in each one referencing the other one, they will also be tagged with the GitConflict tag.
 You can then simply remove/edit these tiddlers before commiting/pushing again with the GitHub button.
+
+The other .json files are merged line by line, like git does by default.
 
 Some particular tiddlers are also completely ignored, see the .gitignore file.
 
