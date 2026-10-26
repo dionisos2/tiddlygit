@@ -71,6 +71,8 @@ PID not found
 
 If the test doesn't complete successfully, please verify the dependencies, and then create an issue.
 
+The file synchronization of the Bob plugin is tested with `node --test tests/` (it needs the `plugins_repositories/TW5-Bob` submodule, or a `BOB_PATH` environment variable pointing to a Bob plugin folder).
+
 # Installation
 
 Preferred way :
