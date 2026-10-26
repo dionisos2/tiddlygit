@@ -2,7 +2,8 @@
 """
 Git merge driver for TiddlyWiki tiddler files (.tid and .json).
 
-Usage (configured by installation.sh): tiddly-merge.py %O %A %B
+Usage (configured by installation.sh): tiddly-merge.py %O %A %B %P
+       tiddly-merge.py --resolve-format-changes (run by synchronize.sh)
 
 The tiddlers are merged field by field: a field changed on one side only takes
 that value, and when both sides changed the text, it is merged line by line.
@@ -231,12 +232,37 @@ def save_conflict_copy(file_format, fields, suffix):
 	return copy
 
 
-def merge_tiddler_file(base_path, ours_path, theirs_path):
+def other_format_paths(path):
+	stem, extension = os.path.splitext(path)
+	return [stem + other for other in (".tid", ".json") if other != extension]
+
+
+def base_in_other_format(path):
+	"""
+	When both sides saved a tiddler in a new format (like X.tid becoming
+	X.json), git has no common version: find it in the other format, in the
+	common ancestor of the merged commits. Git gives the commit being merged
+	in a GITHEAD_<commit> environment variable.
+	"""
+	theirs_commits = [name[len("GITHEAD_"):] for name in os.environ if name.startswith("GITHEAD_")]
+	if len(theirs_commits) != 1:
+		return ""
+	merge_base = run(["git", "merge-base", "HEAD", theirs_commits[0]])
+	for other_path in other_format_paths(path):
+		result = subprocess.run(["git", "show", f"{merge_base}:{other_path}"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+		if merge_base and result.returncode == 0:
+			return result.stdout.decode("utf-8")
+	return ""
+
+
+def merge_tiddler_file(base_path, ours_path, theirs_path, path=None):
 	contents = []
-	for path in (base_path, ours_path, theirs_path):
-		with open(path) as file:
+	for file_path in (base_path, ours_path, theirs_path):
+		with open(file_path) as file:
 			contents.append(file.read())
 	base_content, ours_content, theirs_content = contents
+	if not base_content.strip() and path:
+		base_content = base_in_other_format(path)
 	ours, theirs = parse(ours_content), parse(theirs_content)
 	base = parse(base_content) if base_content.strip() else (TID, {})
 	if ours is None or theirs is None or base is None:
@@ -249,24 +275,86 @@ def merge_tiddler_file(base_path, ours_path, theirs_path):
 			file.write(merged)
 		return 0
 
-	file_format = ours[0]
-	merged, conflicts = merge_fields(base[1], ours[1], theirs[1])
+	merged = merge_tiddlers(base[1], ours[1], theirs, theirs_content)
+	# Git expects the result in the same file, so the format of ours is kept
+	with open(ours_path, "w") as file:
+		file.write(serialize(ours[0], merged))
+	return 0
+
+
+def merge_tiddlers(base, ours, theirs, theirs_content):
+	"""
+	Merge the fields of a tiddler (theirs is a (format, fields) pair), saving
+	their version as a conflict tiddler when needed. Return the merged fields.
+	"""
+	merged, conflicts = merge_fields(base, ours, theirs[1])
 	if conflicts:
-		print(f"Conflict on the fields {', '.join(conflicts)} of {ours[1]['title']}")
+		print(f"Conflict on the fields {', '.join(conflicts)} of {ours['title']}")
 		ours_user = run(["git", "config", "user.name"])
 		theirs_user = run(["git", "show", "-s", "--format=%an", "remotes/origin/HEAD"])
 		theirs_fields = dict(theirs[1])
 		add_conflict_note(theirs_fields, merged["title"], ours_user)
 		copy = save_conflict_copy(theirs[0], theirs_fields, str(hash(theirs_content)))
 		add_conflict_note(merged, copy["title"], theirs_user)
-	# Git expects the result in the same file, so the format of ours is kept
-	with open(ours_path, "w") as file:
-		file.write(serialize(file_format, merged))
-	return 0
+	return merged
+
+
+def show(commit, paths):
+	"""Return (path, content) of the first path existing in commit, or (None, None)."""
+	for path in paths:
+		result = subprocess.run(["git", "show", f"{commit}:{path}"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+		if result.returncode == 0:
+			return path, result.stdout.decode("utf-8")
+	return None, None
+
+
+def resolve_format_change(path, merge_base):
+	"""
+	Resolve the modify/delete conflict of a tiddler file saved in another
+	format on one side (X.tid deleted and X.json added). Return whether it was
+	resolved.
+	"""
+	paths = [path] + other_format_paths(path)
+	ours_path, ours_content = show("HEAD", paths)
+	theirs_path, theirs_content = show("MERGE_HEAD", paths)
+	_, base_content = show(merge_base, paths)
+	if ours_path is None or theirs_path is None or ours_path == theirs_path:
+		return False
+	ours, theirs = parse(ours_content), parse(theirs_content)
+	base = parse(base_content) if base_content else (TID, {})
+	if ours is None or theirs is None or base is None or ours[1]["title"] != theirs[1]["title"]:
+		return False
+
+	merged = merge_tiddlers(base[1], ours[1], theirs, theirs_content)
+	# Once a tiddler is saved as .json, it stays .json (see tiddlygit-plugin)
+	result_path = ours_path if ours[0] == JSON else theirs_path
+	with open(result_path, "w") as file:
+		file.write(serialize(ours[0] if result_path == ours_path else theirs[0], merged))
+	for other_path in paths:
+		if other_path != result_path:
+			subprocess.run(["git", "rm", "-q", "--ignore-unmatch", "--", other_path], check=True)
+	subprocess.run(["git", "add", "--", result_path], check=True)
+	return True
+
+
+def resolve_format_changes():
+	"""
+	Resolve the conflicts git cannot merge because a tiddler was saved as .json
+	on one side and as .tid on the other. Return 0 when no conflict is left.
+	"""
+	unmerged = run(["git", "diff", "--name-only", "--diff-filter=U"]).splitlines()
+	merge_base = run(["git", "merge-base", "HEAD", "MERGE_HEAD"])
+	left = [path for path in unmerged
+		if not (path.endswith((".tid", ".json")) and resolve_format_change(path, merge_base))]
+	for path in left:
+		print(f"Unresolved conflict: {path}")
+	return 1 if left else 0
 
 
 if __name__ == "__main__":
-	if len(sys.argv) != 4:
-		print("Should take 3 arguments : %O %A %B")
+	if sys.argv[1:] == ["--resolve-format-changes"]:
+		sys.exit(resolve_format_changes())
+	if len(sys.argv) not in (4, 5):
+		print("Should take 3 or 4 arguments : %O %A %B [%P]")
 		sys.exit(1)
 	sys.exit(merge_tiddler_file(*sys.argv[1:]))

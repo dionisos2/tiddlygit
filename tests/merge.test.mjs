@@ -40,7 +40,10 @@ function conflictFiles() {
 // merges the branch. Each argument maps file names to contents.
 function mergeScenario(base, ours, theirs) {
   const commitAll = (files, message) => {
-    for (const [name, content] of Object.entries(files)) write(name, content);
+    for (const [name, content] of Object.entries(files)) {
+      if (content === null) fs.rmSync(path.join(tiddlersDir(), name));
+      else write(name, content);
+    }
     git("add", "-A");
     git("commit", "-q", "-m", message);
   };
@@ -57,7 +60,7 @@ beforeEach(() => {
   git("init", "-q", "-b", "main");
   git("config", "user.email", "test@example.com");
   git("config", "user.name", "Test");
-  git("config", "merge.tiddly-merge.driver", `${driver} %O %A %B`);
+  git("config", "merge.tiddly-merge.driver", `${driver} %O %A %B %P`);
   fs.copyFileSync(path.join(repoRoot, ".gitattributes"), path.join(repo, ".gitattributes"));
   fs.mkdirSync(tiddlersDir(), { recursive: true });
 });
@@ -141,6 +144,91 @@ test("json: unimportant fields changed on both sides keep our value", () => {
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.equal(read("Planning.json"), jsonTiddler(planning({ modified: "20260102000000000", "nouvelle-tache": "Ours " })));
   assert.deepEqual(conflictFiles(), []);
+});
+
+// --- Tiddlers changing format ---------------------------------------------------
+// TiddlyWiki saves a tiddler as .json when a field has leading or trailing spaces.
+
+test("json: a .tid saved as .json on both sides is merged with the .tid as common version", () => {
+  const result = mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning()) },
+    { "Planning.tid": null, "Planning.json": jsonTiddler(planning({ "nouvelle-tache": "Ours ", "current-user": "Ours" })) },
+    { "Planning.tid": null, "Planning.json": jsonTiddler(planning({ "nouvelle-tache": "Theirs ", tags: "Theirs" })) },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("Planning.json"), jsonTiddler(planning({ "nouvelle-tache": "Ours ", "current-user": "Ours", tags: "Theirs" })));
+  assert.deepEqual(conflictFiles(), []);
+});
+
+// Run by synchronize.sh when git cannot merge: a tiddler saved as .json on one
+// side and modified as .tid on the other is a modify/delete conflict for git.
+function resolveFormatChanges() {
+  return spawnSync(driver, ["--resolve-format-changes"], { cwd: repo, encoding: "utf8" });
+}
+
+const unmergedFiles = () => git("diff", "--name-only", "--diff-filter=U").trim();
+
+test("resolve: a .tid saved as .json on our side and modified on theirs is merged", () => {
+  const merge = mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning()) },
+    { "Planning.tid": null, "Planning.json": jsonTiddler(planning({ "nouvelle-tache": "Ours ", "current-user": "Ours" })) },
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Theirs" })) },
+  );
+  assert.notEqual(merge.status, 0, "git alone cannot merge it");
+
+  const result = resolveFormatChanges();
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(unmergedFiles(), "");
+  assert.equal(read("Planning.json"), jsonTiddler(planning({ "nouvelle-tache": "Ours ", "current-user": "Ours", tags: "Theirs" })));
+  assert.equal(fs.existsSync(path.join(tiddlersDir(), "Planning.tid")), false);
+  git("commit", "-q", "--no-edit");
+  assert.equal(git("status", "--porcelain"), "");
+});
+
+test("resolve: a .tid modified on our side and saved as .json on theirs is merged as .json", () => {
+  const merge = mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning()) },
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Ours" })) },
+    { "Planning.tid": null, "Planning.json": jsonTiddler(planning({ "nouvelle-tache": "Theirs " })) },
+  );
+  assert.notEqual(merge.status, 0, "git alone cannot merge it");
+
+  const result = resolveFormatChanges();
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(unmergedFiles(), "");
+  // The field order of ours (the .tid file) is kept
+  assert.deepEqual(JSON.parse(read("Planning.json")), [{ ...tidPlanning({ tags: "Ours" }), "nouvelle-tache": "Theirs " }]);
+  assert.equal(fs.existsSync(path.join(tiddlersDir(), "Planning.tid")), false);
+});
+
+test("resolve: a conflict between the two formats creates a conflict tiddler", () => {
+  mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning()) },
+    { "Planning.tid": null, "Planning.json": jsonTiddler(planning({ "nouvelle-tache": "Ours ", text: "ours text" })) },
+    { "Planning.tid": tidTiddler(tidPlanning({ text: "theirs text" })) },
+  );
+
+  const result = resolveFormatChanges();
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(unmergedFiles(), "");
+  assert.match(JSON.parse(read("Planning.json"))[0].text, /^ours text\n\nCONFLICT/);
+  const copies = conflictFiles().filter((name) => name !== "Planning.json");
+  assert.equal(copies.length, 1);
+  assert.match(read(copies[0]), /theirs text/);
+});
+
+test("resolve: a real modify/delete conflict is left to the user", () => {
+  const merge = mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning()), "Other.tid": tidTiddler({ title: "Other", text: "x" }) },
+    { "Planning.tid": null, "Planning.json": jsonTiddler(planning({ "nouvelle-tache": "Ours " })), "Other.tid": null },
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Theirs" })), "Other.tid": tidTiddler({ title: "Other", text: "y" }) },
+  );
+  assert.notEqual(merge.status, 0);
+
+  const result = resolveFormatChanges();
+  assert.notEqual(result.status, 0);
+  assert.equal(unmergedFiles(), "wiki/tiddlers/Other.tid");
+  assert.match(read("Planning.json"), /Theirs/, "the format change is resolved anyway");
 });
 
 // --- Other .json files -------------------------------------------------------------
