@@ -252,6 +252,35 @@ test("the server does not reload the files it writes for tiddlers with an empty 
   assert.equal((await server.getTiddler("Empty")).revision, revision);
 });
 
+const tiddlerFiles = (title) => fs.readdirSync(path.join(wikiDir, "tiddlers")).filter((name) => name.startsWith(title + "."));
+
+test("a tiddler saved as .json stays .json", async () => {
+  await startServer();
+  await server.putTiddler(planningFields({ "nouvelle-tache": "Acheter ", modified: now() }));
+  await eventually(() => tiddlerFiles(TITLE).join() === TITLE + ".json", "the tiddler was not saved as .json");
+
+  await server.putTiddler(planningFields({ "nouvelle-tache": "Acheter du", modified: now() }));
+  await eventually(async () => (await tiddlerOnDisk(wikiDir, TITLE))?.["nouvelle-tache"] === "Acheter du",
+    "the change was not saved");
+  assert.deepEqual(tiddlerFiles(TITLE), [TITLE + ".json"]);
+});
+
+test("a tiddler loaded from a .json file stays .json", async () => {
+  fs.unlinkSync(path.join(wikiDir, "tiddlers", TITLE + ".tid"));
+  fs.writeFileSync(path.join(wikiDir, "tiddlers", TITLE + ".json"), JSON.stringify([planningFields()], null, 4));
+  await startServer();
+
+  await server.putTiddler(planningFields({ "days-count": "5", modified: now() }));
+  await eventually(async () => (await tiddlerOnDisk(wikiDir, TITLE))?.["days-count"] === "5", "the change was not saved");
+  assert.deepEqual(tiddlerFiles(TITLE), [TITLE + ".json"]);
+});
+
+test("a tiddler that never needed .json is saved as .tid", async () => {
+  await startServer();
+  await server.putTiddler({ title: "Simple", text: "hello", tags: "a b" });
+  await eventually(() => tiddlerFiles("Simple").join() === "Simple.tid", "the tiddler was not saved as .tid");
+});
+
 // --- Loading files changed on disk -------------------------------------------
 
 test("a tiddler file modified on disk is loaded by the server", async () => {

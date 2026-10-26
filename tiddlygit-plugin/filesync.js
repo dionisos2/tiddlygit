@@ -177,6 +177,29 @@ exports.rescan = function() {
 };
 
 /*
+Once a tiddler is saved as .json (TiddlyWiki does it when a field has leading
+or trailing spaces), keep it as .json: going back to .tid would make git see a
+deleted file and a created one at each change
+*/
+function keepJsonFiles(adaptor) {
+	var getTiddlerFileInfo = adaptor.getTiddlerFileInfo;
+	adaptor.getTiddlerFileInfo = function(tiddler,callback) {
+		var oldInfo = $tw.boot.files[tiddler.fields.title];
+		getTiddlerFileInfo.call(adaptor,tiddler,function(err,fileInfo) {
+			var isJson = oldInfo && oldInfo.type === "application/json" && !oldInfo.hasMetaFile;
+			if(!err && isJson && fileInfo.type === "application/x-tiddler") {
+				var stem = fileInfo.filepath.replace(/\.tid$/,"");
+				fileInfo = $tw.utils.extend({},fileInfo,{
+					type: "application/json",
+					filepath: oldInfo.filepath === stem + ".json" ? oldInfo.filepath : stem + ".json"
+				});
+			}
+			callback(err,fileInfo);
+		});
+	};
+}
+
+/*
 Start watching the tiddlers folder
 */
 exports.start = function() {
@@ -199,6 +222,7 @@ exports.start = function() {
 			}
 		};
 	});
+	keepJsonFiles(adaptor);
 	logger.log("Watching",tiddlersPath());
 };
 
