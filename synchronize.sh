@@ -29,14 +29,23 @@ git merge --no-edit
 return_code=$?
 echo "Return code=$return_code"
 
-# Git cannot merge a tiddler saved as .json on one side and as .tid on the other
-if [ "$return_code" != 0 ] && ./tiddly-merge.py --resolve-format-changes
+# Resolve the conflicts git leaves on tiddlers (deleted on one side and modified
+# on the other, saved as .json on one side and as .tid on the other...)
+if [ "$return_code" != 0 ] && ./tiddly-merge.py --resolve-conflicts
 then
 	git commit --no-edit
 	return_code=$?
 fi
 
-[ "$return_code" = 0 ] || fail "git merge"
+if [ "$return_code" != 0 ]
+then
+	# Go back to our last commit, so that no conflict marker is loaded in the
+	# wiki or committed by the next synchronization. Everything was committed
+	# before merging, so the untracked files are conflict tiddlers of the merge.
+	git merge --abort
+	git clean -f -q -- wiki/tiddlers
+	fail "git merge"
+fi
 
 git add --all
 git commit -m"Commit conflicts"

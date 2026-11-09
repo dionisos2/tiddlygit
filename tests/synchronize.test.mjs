@@ -96,13 +96,35 @@ test("a tiddler saved as .json by both is merged with the .tid as common version
   assert.deepEqual(fs.readdirSync(path.join(root, "bob/wiki/tiddlers")), ["PlanningDionisos.json"]);
 });
 
-test("a conflict git cannot resolve makes the synchronization fail", () => {
+test("a tiddler deleted by one and modified by the other is kept", () => {
   fs.rmSync(file("alice", "PlanningDionisos.tid"));
   assert.equal(synchronize("alice").status, 0);
 
   write("bob", "PlanningDionisos.tid", tid(planning({ "current-user": "Bob" })));
   const result = synchronize("bob");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(read("bob", "PlanningDionisos.tid"), /CONFLICT : deleted by alice, but modified by bob/);
+  assert.equal(git(path.join(root, "bob"), "status", "--porcelain"), "");
+});
+
+test("a conflict that cannot be resolved cancels the merge and makes the synchronization fail", () => {
+  const notes = (clone) => path.join(root, clone, "wiki/notes.txt");
+  fs.writeFileSync(notes("alice"), "alice\n");
+  assert.equal(synchronize("alice").status, 0);
+
+  write("alice", "PlanningDionisos.tid", tid(planning({ text: "alice text" })));
+  assert.equal(synchronize("alice").status, 0);
+
+  fs.writeFileSync(notes("bob"), "bob\n");
+  write("bob", "PlanningDionisos.tid", tid(planning({ text: "bob text" })));
+  const bob = path.join(root, "bob");
+  const result = synchronize("bob");
   assert.notEqual(result.status, 0);
+  assert.match(result.stdout, /wiki\/notes.txt/, "the conflicting file is reported");
+  assert.equal(fs.readFileSync(notes("bob"), "utf8"), "bob\n", "no conflict marker is left");
+  assert.equal(fs.existsSync(path.join(bob, ".git/MERGE_HEAD")), false, "the merge is cancelled");
+  assert.equal(git(bob, "status", "--porcelain", "--untracked-files=all"), "", "the conflict tiddlers of the cancelled merge are removed");
+  assert.equal(read("bob", "PlanningDionisos.tid"), tid(planning({ text: "bob text" })));
 });
 
 test("the result of the synchronization does not depend on notify-send", () => {

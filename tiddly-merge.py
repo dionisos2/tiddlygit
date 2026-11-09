@@ -3,7 +3,7 @@
 Git merge driver for TiddlyWiki tiddler files (.tid and .json).
 
 Usage (configured by installation.sh): tiddly-merge.py %O %A %B %P
-       tiddly-merge.py --resolve-format-changes (run by synchronize.sh)
+       tiddly-merge.py --resolve-conflicts (run by synchronize.sh)
 
 The tiddlers are merged field by field: a field changed on one side only takes
 that value, and when both sides changed the text, it is merged line by line.
@@ -15,6 +15,11 @@ Other .json files (like plugins) are merged structurally: objects key by key,
 arrays element by element and strings line by line. When this is not possible
 (conflict, or formatting that cannot be kept), files are merged line by line
 like git does by default.
+
+The conflicts git resolves without calling the merge driver are resolved by
+--resolve-conflicts: a tiddler deleted on one side and modified (or renamed) on
+the other is kept, with a conflict note, and a binary tiddler changed on both
+sides keeps our version, theirs being saved as a new tiddler tagged GitConflict.
 """
 
 import json
@@ -211,19 +216,43 @@ def merge_fields(base, ours, theirs):
 
 
 def run(command):
-	return subprocess.run(command, stdout=subprocess.PIPE).stdout.decode("utf-8").strip()
+	return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.decode("utf-8").strip()
+
+
+def theirs_commit():
+	"""
+	The commit being merged: git gives it in a GITHEAD_<commit> environment
+	variable while the merge driver runs, and in MERGE_HEAD after.
+	"""
+	commits = [name[len("GITHEAD_"):] for name in os.environ if name.startswith("GITHEAD_")]
+	return commits[0] if len(commits) == 1 else "MERGE_HEAD"
+
+
+def ours_user():
+	return run(["git", "config", "user.name"])
+
+
+def theirs_user():
+	return run(["git", "show", "-s", "--format=%an", theirs_commit()])
+
+
+def add_note(fields, note):
+	fields["text"] = (fields.get("text", "") + "\n\n" + note).lstrip("\n")
 
 
 def add_conflict_note(fields, title, user):
-	note = f"CONFLICT : [[{title}]] (modified by : {user})"
-	fields["text"] = (fields.get("text", "") + "\n\n" + note).lstrip("\n")
+	add_note(fields, f"CONFLICT : [[{title}]] (modified by : {user})")
+
+
+def add_conflict_tag(fields):
+	fields["tags"] = (fields.get("tags", "") + " GitConflict").strip()
 
 
 def save_conflict_copy(file_format, fields, suffix):
 	"""Save their version as a new tiddler, return its title."""
 	copy = dict(fields)
 	copy["title"] = fields["title"] + suffix
-	copy["tags"] = (fields.get("tags", "") + " GitConflict").strip()
+	add_conflict_tag(copy)
 	if has_unsafe_fields(copy):
 		file_format = JSON
 	filename = re.sub(r'[<>:"/\\|?*^]', "_", copy["title"]) + (".json" if file_format == JSON else ".tid")
@@ -244,10 +273,7 @@ def base_in_other_format(path):
 	common ancestor of the merged commits. Git gives the commit being merged
 	in a GITHEAD_<commit> environment variable.
 	"""
-	theirs_commits = [name[len("GITHEAD_"):] for name in os.environ if name.startswith("GITHEAD_")]
-	if len(theirs_commits) != 1:
-		return ""
-	merge_base = run(["git", "merge-base", "HEAD", theirs_commits[0]])
+	merge_base = run(["git", "merge-base", "HEAD", theirs_commit()])
 	for other_path in other_format_paths(path):
 		result = subprocess.run(["git", "show", f"{merge_base}:{other_path}"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 		if merge_base and result.returncode == 0:
@@ -290,12 +316,10 @@ def merge_tiddlers(base, ours, theirs, theirs_content):
 	merged, conflicts = merge_fields(base, ours, theirs[1])
 	if conflicts:
 		print(f"Conflict on the fields {', '.join(conflicts)} of {ours['title']}")
-		ours_user = run(["git", "config", "user.name"])
-		theirs_user = run(["git", "show", "-s", "--format=%an", "remotes/origin/HEAD"])
 		theirs_fields = dict(theirs[1])
-		add_conflict_note(theirs_fields, merged["title"], ours_user)
+		add_conflict_note(theirs_fields, merged["title"], ours_user())
 		copy = save_conflict_copy(theirs[0], theirs_fields, str(hash(theirs_content)))
-		add_conflict_note(merged, copy["title"], theirs_user)
+		add_conflict_note(merged, copy["title"], theirs_user())
 	return merged
 
 
@@ -337,23 +361,126 @@ def resolve_format_change(path, merge_base):
 	return True
 
 
-def resolve_format_changes():
+def unmerged_stages():
+	"""Return {path: {stage: blob}} for the unmerged paths (1 base, 2 ours, 3 theirs)."""
+	output = subprocess.run(["git", "ls-files", "-u", "-z"], stdout=subprocess.PIPE, check=True).stdout.decode("utf-8")
+	stages = {}
+	for entry in output.split("\0"):
+		if entry:
+			info, path = entry.split("\t", 1)
+			_, blob, stage = info.split()
+			stages.setdefault(path, {})[int(stage)] = blob
+	return stages
+
+
+def blob_content(blob):
+	return subprocess.run(["git", "cat-file", "blob", blob], stdout=subprocess.PIPE, check=True).stdout
+
+
+def is_in_tiddlers_folder(path):
+	return os.path.normpath(path).startswith(os.path.normpath(TID_PATH) + os.sep)
+
+
+def keep_one_side(path, stages):
 	"""
-	Resolve the conflicts git cannot merge because a tiddler was saved as .json
-	on one side and as .tid on the other. Return 0 when no conflict is left.
+	Resolve a conflict where the file exists on one side only (modified or
+	renamed on that side, deleted on the other): keep it. When it was deleted on
+	the other side, a tiddler gets a conflict note.
 	"""
-	unmerged = run(["git", "diff", "--name-only", "--diff-filter=U"]).splitlines()
+	side = 2 if 2 in stages else 3
+	content = blob_content(stages[side])
+	tiddler = parse(content.decode("utf-8", errors="replace")) if path.endswith((".tid", ".json")) else None
+	if 1 in stages and tiddler is not None:
+		deleter, modifier = (theirs_user(), ours_user()) if side == 2 else (ours_user(), theirs_user())
+		print(f"{tiddler[1]['title']} was deleted by {deleter}, but modified by {modifier}: it is kept")
+		fields = dict(tiddler[1])
+		add_note(fields, f"CONFLICT : deleted by {deleter}, but modified by {modifier}")
+		add_conflict_tag(fields)
+		content = serialize(tiddler[0], fields).encode("utf-8")
+	with open(path, "wb") as file:
+		file.write(content)
+	subprocess.run(["git", "add", "--", path], check=True)
+
+
+def keep_ours_and_copy_theirs(path, stages):
+	"""
+	Resolve a conflict on a tiddler file git cannot merge (like an image):
+	keep ours, and save theirs as a new tiddler tagged GitConflict.
+	"""
+	theirs_content = blob_content(stages[3])
+	suffix = str(hash(theirs_content))
+	stem, extension = os.path.splitext(path)
+	copy_path = stem + suffix + extension
+	_, meta_content = show("MERGE_HEAD", [path + ".meta"])
+	meta = parse_tid(meta_content) if meta_content else {}
+	meta["title"] = meta.get("title", os.path.basename(path)) + suffix
+	add_conflict_tag(meta)
+	print(f"Conflict on {path}: their version is saved as {copy_path}")
+	with open(copy_path, "wb") as file:
+		file.write(theirs_content)
+	with open(copy_path + ".meta", "w") as file:
+		file.write(serialize(TID, {name: value for name, value in meta.items() if name != "text"}) + "\n")
+	with open(path, "wb") as file:
+		file.write(blob_content(stages[2]))
+	subprocess.run(["git", "add", "--", path], check=True)
+
+
+def remove(path):
+	subprocess.run(["git", "rm", "-q", "--cached", "--", path], check=True)
+	if os.path.exists(path):
+		os.remove(path)
+
+
+def is_renamed_copy(stages, all_stages):
+	"""
+	Whether the file is the theirs side of a file renamed differently on both
+	sides: git puts the merged content (with a conflict on the title) under both
+	names, the name of ours is kept.
+	"""
+	return list(stages) == [3] and any(
+		list(other) == [2] and other[2] == stages[3] for other in all_stages.values())
+
+
+def resolve_conflict(path, stages, all_stages, merge_base):
+	"""Resolve the conflict git left on a file, return whether it was resolved."""
+	if not is_in_tiddlers_folder(path):
+		return False
+	if path.endswith((".tid", ".json")) and resolve_format_change(path, merge_base):
+		return True
+	if (2 not in stages and 3 not in stages) or is_renamed_copy(stages, all_stages):
+		# Deleted (or renamed) on both sides
+		remove(path)
+		return True
+	if 2 not in stages or 3 not in stages:
+		keep_one_side(path, stages)
+		return True
+	if not path.endswith((".tid", ".json", ".meta")):
+		keep_ours_and_copy_theirs(path, stages)
+		return True
+	return False
+
+
+def resolve_conflicts():
+	"""
+	Resolve the conflicts git leaves without calling the merge driver (see the
+	module documentation). Return 0 when no conflict is left.
+	"""
 	merge_base = run(["git", "merge-base", "HEAD", "MERGE_HEAD"])
-	left = [path for path in unmerged
-		if not (path.endswith((".tid", ".json")) and resolve_format_change(path, merge_base))]
+	left = []
+	initial_stages = unmerged_stages()
+	for path in initial_stages:
+		# Resolving a format change resolves the file in the other format too
+		stages = unmerged_stages().get(path)
+		if stages and not resolve_conflict(path, stages, initial_stages, merge_base):
+			left.append(path)
 	for path in left:
 		print(f"Unresolved conflict: {path}")
 	return 1 if left else 0
 
 
 if __name__ == "__main__":
-	if sys.argv[1:] == ["--resolve-format-changes"]:
-		sys.exit(resolve_format_changes())
+	if sys.argv[1:] == ["--resolve-conflicts"]:
+		sys.exit(resolve_conflicts())
 	if len(sys.argv) not in (4, 5):
 		print("Should take 3 or 4 arguments : %O %A %B [%P]")
 		sys.exit(1)
