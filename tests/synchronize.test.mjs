@@ -104,3 +104,17 @@ test("a conflict git cannot resolve makes the synchronization fail", () => {
   const result = synchronize("bob");
   assert.notEqual(result.status, 0);
 });
+
+test("the result of the synchronization does not depend on notify-send", () => {
+  fs.writeFileSync(path.join(root, "bin/notify-send"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  write("alice", "PlanningDionisos.tid", tid(planning({ "current-user": "Alice" })));
+  const result = synchronize("alice");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
+test("a push refused by the remote makes the synchronization fail", () => {
+  fs.writeFileSync(path.join(root, "origin.git/hooks/pre-receive"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  write("alice", "PlanningDionisos.tid", tid(planning({ "current-user": "Alice" })));
+  const result = synchronize("alice");
+  assert.notEqual(result.status, 0, result.stdout + result.stderr);
+});

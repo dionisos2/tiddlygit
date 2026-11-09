@@ -3,6 +3,19 @@
 # Run by the TiddlyWiki server (see tiddlygit-plugin/synchronize-route.js) when
 # the synchronize button is pressed. The server holds its own file writes while
 # this script runs, and reloads the changed files when it ends.
+#
+# The exit code tells the result (0 when successful); notify-send is only
+# informative, it may not be available.
+
+notify() {
+	notify-send "$@" 2> /dev/null || true
+}
+
+fail() {
+	echo "Synchronization failed: $1"
+	notify -u critical "Synchronization failed: $1"
+	exit 1
+}
 
 # Keep the merge driver configuration up to date (see installation.sh)
 git config merge.tiddly-merge.name "merge for TiddlyWiki tiddler files"
@@ -10,13 +23,7 @@ git config merge.tiddly-merge.driver "./tiddly-merge.py %O %A %B %P"
 
 git add --all
 git commit -m"Synchronize with script"
-git fetch
-return_code=$?
-if [ "$return_code" != 0 ]
-then
-	notify-send -u critical "Synchronization failed: git fetch"
-	exit 1
-fi
+git fetch || fail "git fetch"
 
 git merge --no-edit
 return_code=$?
@@ -29,13 +36,10 @@ then
 	return_code=$?
 fi
 
-if [ "$return_code" = 0 ]
-then
-	git add --all
-	git commit -m"Commit conflicts"
-	git push
-	notify-send "Synchronization successful"
-else
-	notify-send -u critical "Synchronization failed: git merge"
-	exit 1
-fi
+[ "$return_code" = 0 ] || fail "git merge"
+
+git add --all
+git commit -m"Commit conflicts"
+git push || fail "git push"
+notify "Synchronization successful"
+exit 0
