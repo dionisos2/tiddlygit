@@ -51,6 +51,14 @@ export class FakeServer {
     this.tiddlers = new Map();
     this.revision = 0;
     this.loads = 0;
+    // Saves not answered while true, like an unreachable server
+    this.unreachable = false;
+    this.heldSaves = [];
+  }
+
+  reachable() {
+    this.unreachable = false;
+    this.heldSaves.splice(0).forEach((save) => save());
   }
 
   // A change made on the server (file changed on disk, git, another tab...)
@@ -77,6 +85,10 @@ export class FakeServer {
         reply(callback, null, { ...fields, revision });
       },
       saveTiddler: (tiddler, callback) => {
+        if (this.unreachable) {
+          this.heldSaves.push(() => this.adaptor().saveTiddler(tiddler, callback));
+          return;
+        }
         const fields = { ...tiddler.fields };
         delete fields.revision;
         this.set(fields);

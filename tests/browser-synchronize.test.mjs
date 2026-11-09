@@ -118,6 +118,30 @@ test("the page unblocked by hand is not blocked again at the end", async () => {
   }
 });
 
+test("unblocking before the request is sent cancels the synchronization", async () => {
+  const { server, wiki, syncer, calls, synchronize, state } = await setup();
+  try {
+    server.unreachable = true;
+    typeIn(tw(), wiki, "ab");
+    synchronize();
+    await sleep(100);
+    // The "unblock anyway" button
+    wiki.addTiddler(new (tw().Tiddler)(wiki.getTiddler(STATE), { blocked: "no" }));
+    await eventually(() => state().status === "cancelled", "the synchronization was not cancelled");
+    assert.equal(calls.notifications, 1);
+
+    server.reachable();
+    await eventually(() => server.text("Form") === "ab", "the typed text was not saved");
+    await sleep(200);
+    assert.equal(calls.posts.length, 0);
+
+    synchronize();
+    await eventually(() => calls.posts.length === 1, "a new synchronization could not be started");
+  } finally {
+    stopSyncer(syncer);
+  }
+});
+
 test("a second click during a synchronization does nothing", async () => {
   const { syncer, calls, synchronize } = await setup();
   try {
@@ -182,6 +206,13 @@ test("the page shows a blocking overlay while blocked", async () => {
   const { container } = render(`{{${OVERLAY}}}`);
   assert.match(container.innerHTML, /class="tiddlygit-overlay"/);
   assert.match(container.textContent, /Synchronization in progress/);
+});
+
+test("the notification tells the synchronization was cancelled", async () => {
+  const { wiki, render } = wikiWithPlugin();
+  wiki.addTiddler({ title: STATE, status: "cancelled", blocked: "no" });
+  const { container } = render("{{$:/plugins/dionisos/tiddlygit/synchronize-notification}}");
+  assert.equal(container.textContent.trim(), "Synchronization cancelled");
 });
 
 test("the overlay can be removed before the end of the synchronization", async () => {

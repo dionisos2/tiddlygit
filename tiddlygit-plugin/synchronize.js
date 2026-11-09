@@ -10,9 +10,12 @@ The synchronize button, on the browser side:
 - once the browser changes are saved, the server runs the synchronization,
 - the tiddlers changed by git are loaded, then the page is unblocked.
 
+Unblocking the page by hand before the request is sent (the browser changes
+cannot be saved, the server is unreachable...) cancels the synchronization.
+
 The state is kept in $:/temp/tiddlygit/synchronize: "status" ("running", then
-the HTTP status), "blocked" ("yes" or "no"), "code" and "text" (exit code and
-output of the script).
+the HTTP status, or "cancelled"), "blocked" ("yes" or "no"), "code" and "text"
+(exit code and output of the script).
 
 \*/
 "use strict";
@@ -51,9 +54,18 @@ exports.synchronize = function(options) {
 	if(wiki.getTiddler(STATE) && wiki.getTiddler(STATE).fields.status === "running") {
 		return;
 	}
+	function isUnblocked() {
+		return wiki.getTiddler(STATE).fields.blocked !== "yes";
+	}
 	update({status: "running", blocked: "yes", code: "", text: ""});
 	options.blur();
-	waitUntil(function() {return !syncer.isDirty();},function() {
+	waitUntil(function() {return !syncer.isDirty() || isUnblocked();},function() {
+		// Unblocked by hand before the request is sent: cancel the synchronization
+		if(isUnblocked()) {
+			update({status: "cancelled"});
+			options.notify();
+			return;
+		}
 		options.post(function(err,status,data) {
 			update({status: String(status), code: data ? String(data.code) : "", text: data ? data.output : ""});
 			syncer.syncFromServer();

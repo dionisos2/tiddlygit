@@ -1,7 +1,9 @@
 title: $:/plugins/dionisos/tiddlygit/synchronize-notification
 
 <$let code={{$:/temp/tiddlygit/synchronize!!code}}>
-<%if [<code>match[0]] %>
+<%if [{$:/temp/tiddlygit/synchronize!!status}match[cancelled]] %>
+Synchronization cancelled
+<%elseif [<code>match[0]] %>
 Synchronization successful
 <%elseif [{$:/temp/tiddlygit/synchronize!!status}prefix[2]] %>
 Synchronization failed (code <<code>>), see [[$:/temp/tiddlygit/synchronize]]
