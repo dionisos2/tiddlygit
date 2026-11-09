@@ -2,6 +2,10 @@
 set -euo pipefail
 
 # 📦 Variables
+# The version tested is the one committed in this repository (not the
+# uncommitted changes), so that the changes can be tested before pushing them
+REPO=$(cd "$(dirname "$0")" && git rev-parse --show-toplevel)
+BRANCH=$(git -C "$REPO" symbolic-ref --short HEAD) || { echo "❌ Check out a branch to test it"; exit 1; }
 mkdir -p "./test_tmp"
 WORKDIR=$(readlink -f "./test_tmp")
 ORIGIN="$WORKDIR/tiddlygit-origin.git"
@@ -28,21 +32,25 @@ trap cleanup EXIT
 
 echo "📁 Temporary working directory: $WORKDIR"
 
-# 1. 💾 Local bare mirror
-mkdir -p "$(dirname "$ORIGIN")"
-if [[ ! -d "$ORIGIN" ]]; then
-  echo "🔧 Cloning the original repository (bare)"
-  git clone --bare https://github.com/dionisos2/tiddlygit.git "$ORIGIN"
-else
-  echo "🔄 Updating the mirror repository"
-  (cd "$ORIGIN" && git fetch origin)
-fi
+# 1. 💾 Bare mirror of this repository, used as the remote of the test clone
+# (synchronize.sh pushes to it, not to this repository nor to its remote)
+echo "🔧 Copying $REPO ($BRANCH) to a bare repository"
+rm -rf "$ORIGIN"
+git clone -q --bare "$REPO" "$ORIGIN"
 
-# 2. 📥 Test clone
-echo "📥 Cloning for testing"
-git -C "$CLONE" pull || git clone "$ORIGIN" "$CLONE"
+# 2. 📥 Test clone, kept between runs to avoid installing everything again
+if [[ -d "$CLONE/.git" ]]; then
+  echo "🔄 Resetting the test clone to $BRANCH"
+  git -C "$CLONE" remote set-url origin "$ORIGIN"
+  git -C "$CLONE" fetch -q origin
+  git -C "$CLONE" checkout -q -f -B "$BRANCH" "origin/$BRANCH"
+  # The ignored files (node_modules, wiki/plugins...) are kept
+  git -C "$CLONE" clean -q -fd
+else
+  echo "📥 Cloning for testing"
+  git clone -q -b "$BRANCH" "$ORIGIN" "$CLONE"
+fi
 cd "$CLONE"
-git remote set-url origin "$ORIGIN"
 
 # 3. 🛠 Installation and server
 echo "📦 Installation"

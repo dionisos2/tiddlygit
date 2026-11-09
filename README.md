@@ -76,7 +76,7 @@ Some particular tiddlers are also completely ignored, see the .gitignore file.
 
 # Test
 
-To test that everything will work correctly on your computer, run the command `./test.sh`, it should end with these messages:
+To test that everything will work correctly on your computer, run the command `./test.sh`. It tests the version committed in your repository (not your uncommitted changes), in a copy in `test_tmp/`: your repository and its remote are not changed. It should end with these messages:
 
 ```console
 ✅ Merge driver generated the following files:
