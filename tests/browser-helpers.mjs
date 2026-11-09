@@ -83,6 +83,10 @@ export class FakeServer {
       },
       loadTiddler: (title, callback) => {
         this.loads++;
+        if (!this.tiddlers.has(title)) {
+          reply(callback, "XMLHttpRequest error code: 404");
+          return;
+        }
         const { fields, revision } = this.tiddlers.get(title);
         reply(callback, null, { ...fields, revision });
       },

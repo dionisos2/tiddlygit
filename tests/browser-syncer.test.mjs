@@ -83,3 +83,26 @@ test("a tiddler changed on the server is loaded when nothing is being typed", as
     stopSyncer(syncer);
   }
 });
+
+test("a tiddler deleted in the browser is not brought back by a change on the server", async () => {
+  const server = new FakeServer();
+  server.set({ title: "Form", text: "a" });
+  const { wiki, syncer } = startSyncer(server);
+  const alerts = [];
+  syncer.logger.alert = (...args) => alerts.push(args.join(" "));
+  try {
+    await eventually(() => wiki.getTiddlerText("Form") === "a", "the tiddler was not loaded");
+
+    wiki.deleteTiddler("Form");
+    // The server version changes, and the syncer polls it before sending the deletion
+    server.set({ title: "Form", text: "changed elsewhere" });
+    syncer.syncFromServer();
+
+    await eventually(() => !server.tiddlers.has("Form"), "the deletion was not sent", 3000);
+    await sleep(200);
+    assert.equal(wiki.tiddlerExists("Form"), false);
+    assert.deepEqual(alerts, []);
+  } finally {
+    stopSyncer(syncer);
+  }
+});
