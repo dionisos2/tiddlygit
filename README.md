@@ -129,6 +129,8 @@ It asks before stopping the server (and does nothing if you refuse), merges `ups
 
 On the other computers using the same wiki, the update arrives with the next synchronization, but the plugins are not versioned: run `./kill_tiddlygit.sh`, `./update.sh`, then restart the server.
 
+The plugins TiddlyGit no longer uses (like TW5-Bob) are removed by `update.sh` and by the synchronization (see `remove_old_submodules.sh`). Their directory is kept, but ignored by git, when it has changes or a repository of its own.
+
 ### If git refuses to merge unrelated histories
 
 If your repository was created from a copy of TiddlyGit instead of a clone or a fork, it doesn't share its history with TiddlyGit, and `git merge upstream/master` fails with `fatal: refusing to merge unrelated histories`. Join the histories once, after committing your changes and stopping the server:

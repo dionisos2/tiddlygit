@@ -23,7 +23,9 @@ git config merge.tiddly-merge.driver "./tiddly-merge.py %O %A %B %P"
 
 # Everything must be committed before merging: a failed merge is cancelled and
 # its untracked files are removed (see below), so would be the changes left
-# uncommitted
+# uncommitted. The directories left by the submodules a merge removed are not
+# added back (see remove_old_submodules.sh).
+./remove_old_submodules.sh || fail "remove_old_submodules.sh"
 git add --all || fail "git add"
 if ! git diff --cached --quiet
 then
@@ -53,6 +55,7 @@ then
 	fail "git merge"
 fi
 
+./remove_old_submodules.sh || fail "remove_old_submodules.sh"
 git add --all
 git commit -m"Commit conflicts"
 git push || fail "git push"

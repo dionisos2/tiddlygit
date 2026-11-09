@@ -44,7 +44,7 @@ beforeEach(() => {
   git(root, "init", "-q", "--bare", "-b", "main", "origin.git");
   git(root, "clone", "-q", "origin.git", "seed");
   const seed = path.join(root, "seed");
-  for (const name of ["synchronize.sh", "tiddly-merge.py", ".gitattributes"]) {
+  for (const name of ["synchronize.sh", "remove_old_submodules.sh", "tiddly-merge.py", ".gitattributes"]) {
     fs.copyFileSync(path.join(repoRoot, name), path.join(seed, name));
   }
   fs.mkdirSync(path.join(seed, "wiki/tiddlers"), { recursive: true });
@@ -200,4 +200,36 @@ test("a submodule moved to another commit is not committed", () => {
   assert.match(read("alice", "PlanningDionisos.tid"), /Alice/);
   assert.equal(git(alice, "show", "origin/main:wiki/tiddlers/PlanningDionisos.tid").includes("Alice"), true);
   assert.equal(git(alice, "rev-parse", `origin/main:${submodule}`).trim(), first);
+});
+
+// A merge removing a submodule leaves its directory (git cannot remove its .git
+// file): the next synchronization must not add it back without url in
+// .gitmodules ("No url found for submodule path" in update.sh)
+test("a submodule removed by the merge is not added back", () => {
+  const seed = path.join(root, "seed");
+  const alice = path.join(root, "alice");
+  const lib = path.join(root, "lib");
+  const submodule = "plugins_repositories/Old";
+  const allowFile = ["-c", "protocol.file.allow=always"];
+  git(root, "init", "-q", "-b", "main", "lib");
+  git(lib, "-c", "user.name=Lib", "-c", "user.email=lib@example.com", "commit", "-q", "--allow-empty", "-m", "1");
+  const commitSeed = (message) => {
+    git(seed, "-c", "user.name=Seed", "-c", "user.email=seed@example.com", "commit", "-q", "-m", message);
+    git(seed, "push", "-q", "origin", "main");
+  };
+  git(seed, ...allowFile, "submodule", "add", "-q", lib, submodule);
+  commitSeed("Add a plugin");
+  git(alice, "pull", "-q");
+  git(alice, ...allowFile, "submodule", "update", "-q", "--init");
+
+  git(seed, "rm", "-q", submodule);
+  commitSeed("Remove the plugin");
+  let result = synchronize("alice");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  write("alice", "PlanningDionisos.tid", tid(planning({ "current-user": "Alice" })));
+  result = synchronize("alice");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+
+  assert.equal(git(alice, "ls-tree", "origin/main", submodule), "");
+  assert.equal(git(alice, "show", "origin/main:wiki/tiddlers/PlanningDionisos.tid").includes("Alice"), true);
 });

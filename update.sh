@@ -2,6 +2,8 @@
 
 echo "Install tiddlywiki"
 npm --prefix=./ install tiddlywiki
+echo "Remove the submodules no longer used"
+./remove_old_submodules.sh
 echo "Clone all submodules"
 git submodule init
 git submodule sync
