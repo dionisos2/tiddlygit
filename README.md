@@ -24,6 +24,7 @@ The server is the TiddlyWiki node.js server (`--listen`), with the tiddlygit plu
 - loads the tiddler files created, modified or deleted on disk (by a text editor, git...), they reach the browser within 5 seconds,
 - runs `synchronize.sh` when the synchronization button is pressed. The server doesn't write any file while the script runs, and reloads the files changed by git when it ends.
 - saves the drafts (tiddlers being edited) in `wiki/tiddlers/drafts/`, ignored by git.
+- renames a tiddler stored in two files (a file copied by hand, or the same tiddler created on both sides of a git merge): the one of the second file gets a title prefixed by `Duplicate - `, and is saved in a new file. Keep one of them and delete the other.
 - in the browser, keeps what you are typing when the server version of the tiddler changes at the same time (the browser sends its changes at most once per second): your version wins.
 
 If there is any problem during the synchronization, the notification says so, and the output of git is in the `$:/temp/tiddlygit/synchronize` tiddler.
