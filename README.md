@@ -90,7 +90,7 @@ PID not found
 
 If the test doesn't complete successfully, please verify the dependencies, and then create an issue.
 
-The server and the tiddlygit plugin are tested with `node --test tests/`.
+The server and the tiddlygit plugin are tested with `node --test tests/`. The end-to-end test in a real browser (`tests/firefox.test.mjs`) needs Firefox, it is skipped when Firefox is not installed.
 
 # Installation
 
