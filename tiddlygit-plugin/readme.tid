@@ -4,3 +4,4 @@ title: $:/plugins/dionisos/tiddlygit/readme
 * The <<tiddlygit-synchronize-actions>> procedure runs `synchronize.sh` on the server, see the `SynchronizeButton` tiddler.
 * While `synchronize.sh` runs, the server refuses the changes of the browsers (they are sent again after), and every browser blocks its page.
 * A tiddler saved as .json (because a field has leading or trailing spaces) stays .json, so that git doesn't see a deleted and a created file at each change.
+* A file holding a tiddler already stored in another file (copied by hand, created on both sides of a git merge...) is renamed: the tiddler gets a title prefixed by `Duplicate - `, and is saved in a new file.

@@ -359,6 +359,61 @@ test("changing the title inside a file renames the tiddler", async () => {
     "the tiddler was not renamed");
 });
 
+// Titles of the tiddlers stored in the tiddler files, with the files holding them
+async function titlesOnDisk(wikiDir) {
+  const $tw = await bareTiddlyWiki();
+  const titles = {};
+  for (const file of $tw.loadTiddlersFromPath(path.join(wikiDir, "tiddlers"))) {
+    for (const fields of file.tiddlers) (titles[fields.title] ??= []).push(path.basename(file.filepath));
+  }
+  return titles;
+}
+
+test("a file holding a tiddler already in another file is renamed with a prefix", async () => {
+  await startServer();
+  fs.writeFileSync(path.join(wikiDir, "tiddlers", "Copy.tid"), tidFile({ title: TITLE, text: "another version" }));
+
+  await eventually(async () => (await server.getTiddler("Duplicate - " + TITLE))?.text === "another version",
+    "the duplicate was not renamed");
+  assert.equal((await server.getTiddler(TITLE)).text, "{{||TemplatePlanning}}");
+  await eventually(async () => {
+    const titles = await titlesOnDisk(wikiDir);
+    return titles[TITLE]?.length === 1 && titles["Duplicate - " + TITLE]?.length === 1 && !fs.existsSync(path.join(wikiDir, "tiddlers", "Copy.tid"));
+  }, "the files on disk do not hold each title once");
+});
+
+test("a duplicate is renamed with a prefix not used yet", async () => {
+  fs.writeFileSync(path.join(wikiDir, "tiddlers", "Taken.tid"), tidFile({ title: "Duplicate - " + TITLE, text: "taken" }));
+  await startServer();
+  fs.writeFileSync(path.join(wikiDir, "tiddlers", "Copy.tid"), tidFile({ title: TITLE, text: "another version" }));
+
+  await eventually(async () => (await server.getTiddler("Duplicate 2 - " + TITLE))?.text === "another version",
+    "the duplicate was not renamed");
+  assert.equal((await server.getTiddler("Duplicate - " + TITLE)).text, "taken");
+});
+
+test("the duplicates present when the server starts are renamed", async () => {
+  fs.writeFileSync(path.join(wikiDir, "tiddlers", "Copy.tid"), tidFile({ title: TITLE, text: "another version" }));
+  await startServer();
+
+  await eventually(async () => (await server.getTiddler("Duplicate - " + TITLE)) !== null, "the duplicate was not renamed");
+  await eventually(async () => {
+    const titles = await titlesOnDisk(wikiDir);
+    return titles[TITLE]?.length === 1 && titles["Duplicate - " + TITLE]?.length === 1;
+  }, "the files on disk do not hold each title once");
+});
+
+test("a tiddler file moved on disk is not a duplicate", async () => {
+  await startServer();
+  const tiddlers = path.join(wikiDir, "tiddlers");
+  fs.mkdirSync(path.join(tiddlers, "folder"));
+  fs.renameSync(path.join(tiddlers, TITLE + ".tid"), path.join(tiddlers, "folder", TITLE + ".tid"));
+
+  await sleep(1500);
+  assert.equal(await server.getTiddler("Duplicate - " + TITLE), null);
+  assert.notEqual(await server.getTiddler(TITLE), null);
+});
+
 // --- Synchronize route ---------------------------------------------------------
 
 function writeScript(body) {

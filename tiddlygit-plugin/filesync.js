@@ -14,6 +14,10 @@ Keeps the server wiki in sync with the tiddler files on disk:
 The wiki always wins over the disk when it has changes not yet written to the
 disk, so that a file being written by the server is never reloaded half-written.
 
+A file holding a tiddler already stored in another file (copied by hand, or
+created on both sides of a git merge...) is renamed: the tiddler gets a title
+prefixed by "Duplicate - " (or "Duplicate 2 - "...), and is saved in a new file.
+
 \*/
 "use strict";
 
@@ -92,8 +96,14 @@ function isSameTiddler(existing,fields) {
 }
 
 function loadTiddler(fields,tiddlerFile) {
-	var existing = $tw.wiki.getTiddler(fields.title);
+	var existing = $tw.wiki.getTiddler(fields.title),
+		fileInfo = $tw.boot.files[fields.title];
 	if(existing && isSameTiddler(existing,fields)) {
+		// The file was moved: remember where it is now
+		if(fileInfo && fileInfo.filepath !== tiddlerFile.filepath) {
+			fileInfo.filepath = tiddlerFile.filepath;
+			fileInfo.hasMetaFile = tiddlerFile.hasMetaFile;
+		}
 		return;
 	}
 	logger.log("Loading tiddler changed on disk:",fields.title);
@@ -104,6 +114,48 @@ function loadTiddler(fields,tiddlerFile) {
 		isEditableFile: false
 	};
 	$tw.syncer.storeTiddler(fields);
+}
+
+/*
+The file, other than filepath, that holds the tiddler with this title, if any
+*/
+function otherFileHolding(title,filepath) {
+	var fileInfo = $tw.boot.files[title];
+	if(!fileInfo || fileInfo.filepath === filepath) {
+		return null;
+	}
+	try {
+		var holdsTitle = $tw.loadTiddlersFromFile(fileInfo.filepath).tiddlers.some(function(fields) {
+			return fields.title === title;
+		});
+		return holdsTitle ? fileInfo.filepath : null;
+	} catch(e) {
+		// The tiddler was moved to filepath
+		return null;
+	}
+}
+
+function duplicateTitle(title) {
+	for(var number = 1; ; number++) {
+		var candidate = "Duplicate" + (number > 1 ? " " + number : "") + " - " + title;
+		if(!$tw.wiki.tiddlerExists(candidate) && !$tw.boot.files[candidate]) {
+			return candidate;
+		}
+	}
+}
+
+/*
+Give a new title to the tiddler of a file that duplicates another file: the
+syncer saves it in a new file, named after its title, and the file is removed
+*/
+function renameDuplicate(fields,tiddlerFile,otherFile) {
+	var title = duplicateTitle(fields.title);
+	logger.log("Tiddler",fields.title,"is also in",otherFile + ": the one of",tiddlerFile.filepath,"is renamed to",title);
+	$tw.wiki.addTiddler(new $tw.Tiddler(fields,{title: title}));
+	fs.unlinkSync(tiddlerFile.filepath);
+	if(tiddlerFile.hasMetaFile) {
+		fs.unlinkSync(tiddlerFile.filepath + ".meta");
+	}
 }
 
 /*
@@ -131,8 +183,16 @@ function reconcileFile(filepath) {
 		}
 	});
 	tiddlers.forEach(function(fields) {
-		if(!hasUnsavedChanges(fields.title)) {
+		if(hasUnsavedChanges(fields.title)) {
+			return;
+		}
+		var otherFile = otherFileHolding(fields.title,filepath);
+		if(!otherFile) {
 			loadTiddler(fields,tiddlerFile);
+		} else if(tiddlers.length === 1) {
+			renameDuplicate(fields,tiddlerFile,otherFile);
+		} else {
+			logger.log("Tiddler",fields.title,"of",filepath,"is ignored, it is also in",otherFile);
 		}
 	});
 }
@@ -146,9 +206,27 @@ function onFileEvent(filename) {
 	if(path.extname(filepath) === ".meta") {
 		filepath = filepath.slice(0,-5);
 	}
-	if(!isTiddlerFileName(path.basename(filepath))) {
+	// The events of the files of a new folder can be missed
+	if(isDirectory(filepath)) {
+		var files = [];
+		listTiddlerFiles(filepath,files,[]);
+		files.forEach(scheduleReconcile);
 		return;
 	}
+	if(isTiddlerFileName(path.basename(filepath))) {
+		scheduleReconcile(filepath);
+	}
+}
+
+function isDirectory(filepath) {
+	try {
+		return fs.statSync(filepath).isDirectory();
+	} catch(e) {
+		return false;
+	}
+}
+
+function scheduleReconcile(filepath) {
 	clearTimeout(timers[filepath]);
 	timers[filepath] = setTimeout(function() {
 		delete timers[filepath];
@@ -291,6 +369,8 @@ exports.start = function() {
 		return;
 	}
 	watch();
+	// The duplicates present at startup
+	exports.rescan();
 	// Hold the writes of the filesystem adaptor while git runs
 	var adaptor = $tw.syncadaptor;
 	["saveTiddler","deleteTiddler"].forEach(function(method) {
