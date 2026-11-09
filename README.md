@@ -15,6 +15,7 @@ If your wiki is still in the old `Wikis/<name>/` layout used with Bob, see [Comi
 - start the server with the `run.sh`
 - navigate to http://127.0.0.1:7070/
 - press the "github" button - this will commit your changes, merge the changes of the other contributors and push them
+- the page is blocked during the synchronization (so that nothing you type is mixed up with the changes merged by git), an "Unblock anyway" button lets you get it back if it takes too long
 - a notification tells you when the synchronization is done, the merged changes appear in the browser without reloading the page
 
 ## Notes
@@ -22,6 +23,7 @@ If your wiki is still in the old `Wikis/<name>/` layout used with Bob, see [Comi
 The server is the TiddlyWiki node.js server (`--listen`), with the tiddlygit plugin (see `tiddlygit-plugin/`) which:
 - loads the tiddler files created, modified or deleted on disk (by a text editor, git...), they reach the browser within 5 seconds,
 - runs `synchronize.sh` when the synchronization button is pressed. The server doesn't write any file while the script runs, and reloads the files changed by git when it ends.
+- saves the drafts (tiddlers being edited) in `wiki/tiddlers/drafts/`, ignored by git.
 - in the browser, keeps what you are typing when the server version of the tiddler changes at the same time (the browser sends its changes at most once per second): your version wins.
 
 If there is any problem during the synchronization, the notification says so, and the output of git is in the `$:/temp/tiddlygit/synchronize` tiddler.

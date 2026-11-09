@@ -1,0 +1,16 @@
+title: $:/plugins/dionisos/tiddlygit/synchronize-overlay
+tags: $:/tags/PageTemplate
+
+<%if [{$:/temp/tiddlygit/synchronize!!blocked}match[yes]] %>
+<div class="tiddlygit-overlay">
+<div class="tiddlygit-overlay-box">
+
+Synchronization in progress…
+
+<$button class="tiddlygit-unblock">
+<$action-setfield $tiddler="$:/temp/tiddlygit/synchronize" blocked="no"/>
+Unblock anyway
+</$button>
+</div>
+</div>
+<%endif%>
