@@ -78,7 +78,8 @@ def parse(content):
 			data = json.loads(content)
 		except ValueError:
 			return None
-		if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict) \
+		# Without a title, it is a data tiddler whose title is in the .meta file
+		if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict) and data[0].get("title") \
 				and all(isinstance(value, str) for value in data[0].values()):
 			return JSON, data[0]
 		return None

@@ -395,6 +395,20 @@ test("json: an array element changed differently on both sides is a conflict", (
   assert.notEqual(result.status, 0, "the conflict must be reported to git");
 });
 
+// An array of objects without a title is a data tiddler (its title is in the .meta
+// file), not a tiddler file: TiddlyWiki requires a title.
+test("json: an array without title changed on both sides is merged as other json files", () => {
+  const meta = "title: Data\ntype: application/json\n";
+  const result = mergeScenario(
+    { "data.json": JSON.stringify([{ a: "base" }]), "data.json.meta": meta },
+    { "data.json": JSON.stringify([{ a: "ours" }]) },
+    { "data.json": JSON.stringify([{ a: "theirs" }]) },
+  );
+  assert.notEqual(result.status, 0, "the conflict must be reported to git");
+  assert.doesNotMatch(result.stdout + result.stderr, /Traceback/);
+  assert.match(read("data.json"), /<<<<<<<[^]*"ours"[^]*"theirs"/);
+});
+
 // --- .tid tiddlers ----------------------------------------------------------------
 
 const tidPlanning = (extra = {}) => {
