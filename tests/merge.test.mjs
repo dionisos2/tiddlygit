@@ -463,3 +463,20 @@ test("tid: tags added on one side to a tiddler whose tags were removed on the ot
   assert.equal(read("Planning.tid"), tidTiddler(tidPlanning({ tags: "Theirs" })));
   assert.deepEqual(conflictFiles(), []);
 });
+
+test("the same conflict always gives the same conflict tiddler name", () => {
+  const merge = () => spawnSync("git", ["merge", "--no-edit", "theirs"], { cwd: repo, encoding: "utf8" });
+  mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning()) },
+    { "Planning.tid": tidTiddler(tidPlanning({ text: "ours text" })) },
+    { "Planning.tid": tidTiddler(tidPlanning({ text: "theirs text" })) },
+  );
+  const first = conflictFiles().filter((name) => name !== "Planning.tid");
+  assert.equal(first.length, 1);
+  assert.match(first[0], /^PlanningDionisos-[0-9a-f]{8}\.tid$/);
+
+  git("reset", "-q", "--hard", "HEAD^");
+  git("clean", "-q", "-f");
+  merge();
+  assert.deepEqual(conflictFiles().filter((name) => name !== "Planning.tid"), first);
+});

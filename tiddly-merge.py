@@ -24,6 +24,7 @@ the other is kept, with a conflict note, and a binary tiddler changed on both
 sides keeps our version, theirs being saved as a new tiddler tagged GitConflict.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -276,6 +277,12 @@ def theirs_user():
 	return run(["git", "show", "-s", "--format=%an", theirs_commit()])
 
 
+def conflict_suffix(content):
+	"""The suffix of the title of a conflict tiddler: the same for the same content."""
+	data = content.encode("utf-8") if isinstance(content, str) else content
+	return "-" + hashlib.sha1(data).hexdigest()[:8]
+
+
 def add_note(fields, note):
 	fields["text"] = (fields.get("text", "") + "\n\n" + note).lstrip("\n")
 
@@ -358,7 +365,7 @@ def merge_tiddlers(base, ours, theirs, theirs_content):
 		print(f"Conflict on the fields {', '.join(conflicts)} of {ours['title']}")
 		theirs_fields = dict(theirs[1])
 		add_conflict_note(theirs_fields, merged["title"], ours_user())
-		copy = save_conflict_copy(theirs[0], theirs_fields, str(hash(theirs_content)))
+		copy = save_conflict_copy(theirs[0], theirs_fields, conflict_suffix(theirs_content))
 		add_conflict_note(merged, copy["title"], theirs_user())
 	return merged
 
@@ -448,7 +455,7 @@ def keep_ours_and_copy_theirs(path, stages):
 	keep ours, and save theirs as a new tiddler tagged GitConflict.
 	"""
 	theirs_content = blob_content(stages[3])
-	suffix = str(hash(theirs_content))
+	suffix = conflict_suffix(theirs_content)
 	stem, extension = os.path.splitext(path)
 	copy_path = stem + suffix + extension
 	_, meta_content = show("MERGE_HEAD", [path + ".meta"])

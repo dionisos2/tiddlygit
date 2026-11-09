@@ -80,7 +80,7 @@ To test that everything will work correctly on your computer, run the command `.
 
 ```console
 ✅ Merge driver generated the following files:
-wiki/tiddlers/test-766755633815162457.tid
+wiki/tiddlers/test-3f2a9c1e.tid
 Deleting /home/dionisos/projets/programmation/tiddlygit/test_tmp
 ✅ Test completed successfully
 🧹 Cleaning up...
