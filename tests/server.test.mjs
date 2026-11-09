@@ -445,3 +445,22 @@ test("only one synchronization runs at a time", async () => {
   assert.equal(second.status, 409);
   assert.equal((await first).status, 200);
 });
+
+test("a tiddler deleted while the script runs stays deleted", async () => {
+  const started = path.join(wikiDir, "started");
+  const script = writeScript(`touch "${started}"\nsleep 2\n`);
+  await startServer({ TIDDLYGIT_SYNC_SCRIPT: script });
+
+  const pending = server.synchronize();
+  await eventually(() => fs.existsSync(started), "the script did not start");
+  const response = await fetch(server.url("/bags/default/tiddlers/" + encodeURIComponent(TITLE)), {
+    method: "DELETE", headers: { "X-Requested-With": "TiddlyWiki" },
+  });
+  assert.equal(response.status, 204);
+  await (await pending).json();
+  await eventually(async () => !fs.existsSync(path.join(wikiDir, "tiddlers", TITLE + ".tid")),
+    "the deleted tiddler file was not removed");
+  await sleep(1000);
+  assert.equal(await server.getTiddler(TITLE), null, "the deleted tiddler came back in the wiki");
+  assert.equal(await tiddlerOnDisk(wikiDir, TITLE), undefined, "the deleted tiddler came back on disk");
+});

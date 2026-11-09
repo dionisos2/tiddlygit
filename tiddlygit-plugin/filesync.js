@@ -51,13 +51,17 @@ function isTiddlerFileName(filename) {
 
 /*
 Whether the wiki has changes for this title that are not written to disk yet
+(including a deletion: the syncer still knows the tiddler, but it is gone)
 */
 function hasUnsavedChanges(title) {
-	var syncer = $tw.syncer;
-	if(!$tw.wiki.tiddlerExists(title) || syncer.getSyncedTiddlers($tw.wiki.makeTiddlerIterator([title])).length === 0) {
+	var syncer = $tw.syncer,
+		tiddlerInfo = syncer.tiddlerInfo[title];
+	if(!$tw.wiki.tiddlerExists(title)) {
+		return !!tiddlerInfo;
+	}
+	if(syncer.getSyncedTiddlers($tw.wiki.makeTiddlerIterator([title])).length === 0) {
 		return false;
 	}
-	var tiddlerInfo = syncer.tiddlerInfo[title];
 	return !tiddlerInfo || $tw.wiki.getChangeCount(title) > tiddlerInfo.changeCount;
 }
 
