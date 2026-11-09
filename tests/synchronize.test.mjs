@@ -168,3 +168,36 @@ test("a push refused by the remote makes the synchronization fail", () => {
   const result = synchronize("alice");
   assert.notEqual(result.status, 0, result.stdout + result.stderr);
 });
+
+// Each wiki may use other versions of the plugins (update.sh takes their latest
+// version): the submodules moved to another commit are not committed.
+test("a submodule moved to another commit is not committed", () => {
+  const seed = path.join(root, "seed");
+  const lib = path.join(root, "lib");
+  // The first submodule of TiddlyGit, with a local repository as its url
+  const [key, submodule] = git(repoRoot, "config", "-f", ".gitmodules", "--get-regexp", "\\.path$").split("\n")[0].split(" ");
+  const name = key.replace(/^submodule\./, "").replace(/\.path$/, "");
+  const commitLib = (message) => git(lib, "-c", "user.name=Lib", "-c", "user.email=lib@example.com", "commit", "-q", "--allow-empty", "-m", message);
+  git(root, "init", "-q", "-b", "main", "lib");
+  commitLib("1");
+  const first = git(lib, "rev-parse", "HEAD").trim();
+
+  fs.copyFileSync(path.join(repoRoot, ".gitmodules"), path.join(seed, ".gitmodules"));
+  git(seed, "config", "-f", ".gitmodules", `submodule.${name}.url`, lib);
+  git(seed, "clone", "-q", lib, submodule);
+  git(seed, "add", "-A");
+  git(seed, "-c", "user.name=Seed", "-c", "user.email=seed@example.com", "commit", "-q", "-m", "Add a plugin");
+  git(seed, "push", "-q", "origin", "main");
+
+  const alice = path.join(root, "alice");
+  git(alice, "pull", "-q");
+  commitLib("2");
+  git(alice, "clone", "-q", lib, submodule);
+  write("alice", "PlanningDionisos.tid", tid(planning({ "current-user": "Alice" })));
+  const result = synchronize("alice");
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+
+  assert.match(read("alice", "PlanningDionisos.tid"), /Alice/);
+  assert.equal(git(alice, "show", "origin/main:wiki/tiddlers/PlanningDionisos.tid").includes("Alice"), true);
+  assert.equal(git(alice, "rev-parse", `origin/main:${submodule}`).trim(), first);
+});

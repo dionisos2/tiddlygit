@@ -1,15 +1,20 @@
 [submodule "plugins_repositories/TW-Trashbin"]
 	path = plugins_repositories/TW-Trashbin
 	url = https://github.com/kookma/TW-Trashbin
+	ignore = all
 [submodule "plugins_repositories/TW-Commander"]
 	path = plugins_repositories/TW-Commander
 	url = https://github.com/kookma/TW-Commander.git
+	ignore = all
 [submodule "plugins_repositories/tw5-telmiger-plugins"]
 	path = plugins_repositories/tw5-telmiger-plugins
 	url = https://github.com/rimi/tw5-telmiger-plugins
+	ignore = all
 [submodule "plugins_repositories/tw5-relink"]
 	path = plugins_repositories/tw5-relink
 	url = https://github.com/flibbles/tw5-relink.git
+	ignore = all
 [submodule "plugins_repositories/TW-Shiraz"]
 	path = plugins_repositories/TW-Shiraz
 	url = https://github.com/kookma/TW-Shiraz.git
+	ignore = all
