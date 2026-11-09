@@ -201,6 +201,15 @@ after(() => {
   if (emptyWiki) fs.rmSync(emptyWiki, { recursive: true, force: true });
 });
 
+// --- Page served to the browser ----------------------------------------------
+
+test("the browser keeps the changes it has not sent to the server yet", async () => {
+  await startServer();
+  const page = await (await fetch(server.url("/"))).text();
+  assert.match(page, /\$:\/plugins\/dionisos\/tiddlygit\/browser-startup\.js/);
+  assert.match(page, /keepLocalChanges\(\$tw\.syncer\)/);
+});
+
 // --- Saving from the browser -------------------------------------------------
 
 test("a field value ending with a space is kept on disk", async () => {

@@ -22,6 +22,7 @@ If your wiki is still in the old `Wikis/<name>/` layout used with Bob, see [Comi
 The server is the TiddlyWiki node.js server (`--listen`), with the tiddlygit plugin (see `tiddlygit-plugin/`) which:
 - loads the tiddler files created, modified or deleted on disk (by a text editor, git...), they reach the browser within 5 seconds,
 - runs `synchronize.sh` when the synchronization button is pressed. The server doesn't write any file while the script runs, and reloads the files changed by git when it ends.
+- in the browser, keeps what you are typing when the server version of the tiddler changes at the same time (the browser sends its changes at most once per second): your version wins.
 
 If there is any problem during the synchronization, the notification says so, and the output of git is in the `$:/temp/tiddlygit/synchronize` tiddler.
 
