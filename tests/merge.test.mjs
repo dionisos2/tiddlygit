@@ -427,3 +427,39 @@ test("tid: a field changed differently on both sides creates a conflict tiddler"
   assert.match(read(copies[0]), /^tags: .*GitConflict/m);
   assert.match(read(copies[0]), /^theirs text\n\nCONFLICT : \[\[PlanningDionisos\]\]/m);
 });
+
+// --- Title lists (tags, list) ---------------------------------------------------
+
+test("tid: tags added and removed on both sides are merged", () => {
+  const result = mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Bookmark Racine" })) },
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Bookmark Racine [[Ours tag]]" })) },
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Racine Theirs" })) },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("Planning.tid"), tidTiddler(tidPlanning({ tags: "Racine Theirs [[Ours tag]]" })));
+  assert.deepEqual(conflictFiles(), []);
+});
+
+test("json: the elements added to a list field are inserted after the element preceding them", () => {
+  const result = mergeScenario(
+    { "Planning.json": jsonTiddler(planning({ list: "A [[B b]] C" })) },
+    { "Planning.json": jsonTiddler(planning({ list: "A [[B b]] C D" })) },
+    { "Planning.json": jsonTiddler(planning({ list: "X A [[B b]] Y C" })) },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("Planning.json"), jsonTiddler(planning({ list: "X A [[B b]] Y C D" })));
+  assert.deepEqual(conflictFiles(), []);
+});
+
+test("tid: tags added on one side to a tiddler whose tags were removed on the other are kept", () => {
+  const { tags, ...untagged } = tidPlanning();
+  const result = mergeScenario(
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Bookmark" })) },
+    { "Planning.tid": tidTiddler(untagged) },
+    { "Planning.tid": tidTiddler(tidPlanning({ tags: "Bookmark Theirs" })) },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(read("Planning.tid"), tidTiddler(tidPlanning({ tags: "Theirs" })));
+  assert.deepEqual(conflictFiles(), []);
+});

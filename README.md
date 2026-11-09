@@ -37,6 +37,7 @@ Don't hesitate to create an issue if you have a question or if there is any prob
 The tiddler files (.tid and .json) are merged field by field by tiddly-merge.py:
 - a field changed on one side only takes the value of that side, even when both sides changed other fields,
 - when both sides changed the text, it is merged line by line,
+- when both sides changed the tags (or the `list` field), they are merged tag by tag: the tags removed by one side are removed, the tags added by both sides are kept (in your order, the other ones are inserted after the tag preceding them),
 - conflicts on these unimportant fields are ignored (your value is kept): "modified", "created", "nouvelle-tache", "fields-to-show", "date-start", "date-start-temp", "days-count", "days-count-temp", "show-day-record".
 
 Then, any tiddler with remaining conflicts will be duplicated (one for each version), with added link at the bottom in each one referencing the other one, they will also be tagged with the GitConflict tag.

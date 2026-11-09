@@ -6,7 +6,9 @@ Usage (configured by installation.sh): tiddly-merge.py %O %A %B %P
        tiddly-merge.py --resolve-conflicts (run by synchronize.sh)
 
 The tiddlers are merged field by field: a field changed on one side only takes
-that value, and when both sides changed the text, it is merged line by line.
+that value, when both sides changed the text, it is merged line by line, and
+when both sides changed a list of titles (tags, list), it is merged title by
+title.
 When both sides changed the same field differently, our version is kept, and
 their version is saved as a new tiddler tagged GitConflict, each one linking to
 the other. Conflicts on unimportant fields are ignored (our value is kept).
@@ -42,6 +44,9 @@ UNIMPORTANT_FIELDS = [
 	"days-count-temp",
 	"show-day-record",
 ]
+
+# Fields holding a list of titles, merged element by element
+TITLE_LIST_FIELDS = ["tags", "list"]
 
 TID, JSON = "tid", "json"
 
@@ -95,6 +100,37 @@ def has_unsafe_fields(fields):
 		re.search(r"[\x00-\x1F]", value) or value.strip() != value or re.search(r"[:#]", name)
 		for name, value in fields.items() if name != "text"
 	)
+
+
+def parse_title_list(value):
+	"""Parse a list of titles like "One [[Another one]]" the way TiddlyWiki does (parseStringArray)."""
+	titles = []
+	for match in re.finditer(r"(?:^|[^\S\xA0])(?:\[\[(.*?)\]\])(?=[^\S\xA0]|$)|([\S\xA0]+)", value or ""):
+		title = match.group(1) if match.group(1) is not None else match.group(2)
+		if title not in titles:
+			titles.append(title)
+	return titles
+
+
+def stringify_title_list(titles):
+	"""Write a list of titles the way TiddlyWiki does (stringifyList)."""
+	return " ".join(f"[[{title}]]" if re.search(r"[^\S\xA0]", title) else title for title in titles)
+
+
+def merge_title_lists(base, ours, theirs):
+	"""
+	Merge three versions of a list of titles: the titles removed by one side
+	are removed, and the titles added by theirs are inserted after the title
+	preceding them in theirs. The order of ours is kept.
+	"""
+	base, ours, theirs = parse_title_list(base), parse_title_list(ours), parse_title_list(theirs)
+	merged = [title for title in ours if title in theirs or title not in base]
+	for index, title in enumerate(theirs):
+		if title in merged or title in base:
+			continue
+		previous = [other for other in theirs[:index] if other in merged]
+		merged.insert(merged.index(previous[-1]) + 1 if previous else 0, title)
+	return stringify_title_list(merged)
 
 
 def merge_lines(base, ours, theirs):
@@ -202,6 +238,10 @@ def merge_fields(base, ours, theirs):
 			value = theirs_value
 		elif name in UNIMPORTANT_FIELDS:
 			value = ours_value
+		elif name in TITLE_LIST_FIELDS:
+			value = merge_title_lists(base_value, ours_value, theirs_value)
+			if not value and ours_value is None:
+				value = None
 		else:
 			value = None
 			if name == "text" and ours_value is not None and theirs_value is not None:
