@@ -151,11 +151,12 @@ syncer saves it in a new file, named after its title, and the file is removed
 function renameDuplicate(fields,tiddlerFile,otherFile) {
 	var title = duplicateTitle(fields.title);
 	logger.log("Tiddler",fields.title,"is also in",otherFile + ": the one of",tiddlerFile.filepath,"is renamed to",title);
-	$tw.wiki.addTiddler(new $tw.Tiddler(fields,{title: title}));
+	// Removed first: a file that cannot be removed would make another duplicate at each rescan
 	fs.unlinkSync(tiddlerFile.filepath);
 	if(tiddlerFile.hasMetaFile) {
 		fs.unlinkSync(tiddlerFile.filepath + ".meta");
 	}
+	$tw.wiki.addTiddler(new $tw.Tiddler(fields,{title: title}));
 }
 
 /*
@@ -197,6 +198,17 @@ function reconcileFile(filepath) {
 	});
 }
 
+/*
+Like reconcileFile, but an error is only logged: the server must keep running
+*/
+function reconcileFileSafely(filepath) {
+	try {
+		reconcileFile(filepath);
+	} catch(e) {
+		logger.log("Cannot reload",filepath,e.message);
+	}
+}
+
 function onFileEvent(filename) {
 	if(paused || !filename) {
 		return;
@@ -231,7 +243,7 @@ function scheduleReconcile(filepath) {
 	timers[filepath] = setTimeout(function() {
 		delete timers[filepath];
 		if(!paused) {
-			reconcileFile(filepath);
+			reconcileFileSafely(filepath);
 		}
 	},DEBOUNCE_DELAY);
 }
@@ -276,13 +288,7 @@ exports.rescan = function() {
 			files.push(filepath);
 		}
 	});
-	files.forEach(function(filepath) {
-		try {
-			reconcileFile(filepath);
-		} catch(e) {
-			logger.log("Cannot reload",filepath,e.message);
-		}
-	});
+	files.forEach(reconcileFileSafely);
 };
 
 /*

@@ -403,6 +403,23 @@ test("the duplicates present when the server starts are renamed", async () => {
   }, "the files on disk do not hold each title once");
 });
 
+test("the server keeps running when a duplicate cannot be removed", async () => {
+  await startServer();
+  const locked = path.join(wikiDir, "tiddlers", "locked");
+  fs.mkdirSync(locked);
+  fs.writeFileSync(path.join(locked, "Copy.tid"), tidFile({ title: TITLE, text: "another version" }));
+  fs.chmodSync(locked, 0o555);
+  try {
+    await sleep(1500);
+    assert.equal(server.process.exitCode, null, "the server stopped:\n" + server.output);
+    assert.equal((await server.getTiddler(TITLE)).text, "{{||TemplatePlanning}}");
+    // Its file is still there: renaming it would make another duplicate at each rescan
+    assert.equal(await server.getTiddler("Duplicate - " + TITLE), null);
+  } finally {
+    fs.chmodSync(locked, 0o755);
+  }
+});
+
 test("a tiddler file moved on disk is not a duplicate", async () => {
   await startServer();
   const tiddlers = path.join(wikiDir, "tiddlers");
