@@ -118,7 +118,10 @@ Once, add TiddlyGit as the `upstream` remote:
 
 ```
 git remote add upstream https://github.com/dionisos2/tiddlygit.git
+git remote set-url --push upstream no_push
 ```
+
+The second command disables pushing to TiddlyGit, to avoid pushing your wiki to it by mistake (`./upgrade.sh` also does it). If you cloned TiddlyGit directly, make sure `origin` no longer points to TiddlyGit (`git remote -v`) before synchronizing: the GitHub button pushes to `origin`.
 
 Then, to update, commit (or synchronize) your changes and run:
 

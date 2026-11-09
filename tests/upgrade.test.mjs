@@ -129,3 +129,26 @@ test("without an upstream remote, the merge is skipped", () => {
   assert.match(output(result), /upstream/);
   assert.equal(readWiki("updated"), "v1\n");
 });
+
+test("pushing to the upstream remote is disabled, fetching still works", () => {
+  const result = upgrade("y\n");
+  assert.equal(result.status, 0, output(result));
+  writeIn(wiki, "wiki/tiddlers/Private.tid", "title: Private\n\nmy notes");
+  git(wiki, "add", "-A");
+  git(wiki, "commit", "-q", "-m", "Private");
+  const before = git(root, "--git-dir=tiddlygit.git", "rev-parse", "master");
+  const push = spawnSync("git", ["push", "upstream", "HEAD:master"], { cwd: wiki, encoding: "utf8" });
+  assert.notEqual(push.status, 0, "the push to upstream succeeded");
+  assert.equal(git(root, "--git-dir=tiddlygit.git", "rev-parse", "master"), before);
+  assert.equal(git(wiki, "remote", "get-url", "upstream"), path.join(root, "tiddlygit.git") + "\n");
+});
+
+test("pushing to upstream is disabled even when the merge fails", () => {
+  writeIn(wiki, "notes.txt", "ours\n");
+  git(wiki, "add", "-A");
+  git(wiki, "commit", "-q", "-m", "Ours");
+  publish({ "notes.txt": "theirs\n" });
+  const result = upgrade("y\n");
+  assert.notEqual(result.status, 0, output(result));
+  assert.equal(git(wiki, "remote", "get-url", "--push", "upstream"), "no_push\n");
+});

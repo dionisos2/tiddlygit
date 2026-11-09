@@ -7,6 +7,8 @@
 # Usage: ./upgrade.sh
 #
 # The merge is skipped when there is no "upstream" remote (see README.md).
+# Pushing to the "upstream" remote is disabled, to avoid pushing the wiki to
+# TiddlyGit by mistake.
 # It may change this script: git replaces the file instead of rewriting it, so
 # bash keeps reading the version it started with.
 
@@ -35,6 +37,8 @@ esac
 ./kill_tiddlygit.sh
 
 if git remote get-url "$REMOTE" > /dev/null 2>&1; then
+	# Avoids pushing the wiki to TiddlyGit by mistake (fetching still works)
+	git remote set-url --push "$REMOTE" no_push
 	# The merge driver of the tiddlers (see installation.sh)
 	git config merge.tiddly-merge.name "merge for TiddlyWiki tiddler files"
 	git config merge.tiddly-merge.driver "./tiddly-merge.py %O %A %B %P"
