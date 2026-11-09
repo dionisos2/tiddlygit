@@ -6,14 +6,16 @@ mkdir -p "./test_tmp"
 WORKDIR=$(readlink -f "./test_tmp")
 ORIGIN="$WORKDIR/tiddlygit-origin.git"
 CLONE="$WORKDIR/tiddlygit"
+# Not the port of run.sh, so that a TiddlyGit server already running is neither
+# tested nor killed instead of the test one
+PORT=7171
+SERVER_PID=""
 
 kill_tiddlywiki() {
-	echo "Killing tiddlywiki.jl"
-  pid=$(pgrep -of "node ./node_modules/tiddlywiki/tiddlywiki.js wiki/ --listen")
-  if [ -n "$pid" ]; then
-    kill "$pid"
-  else
-    echo "PID not found"
+  if [ -n "$SERVER_PID" ]; then
+    echo "Killing the test server"
+    kill "$SERVER_PID" 2> /dev/null || true
+    SERVER_PID=""
   fi
 }
 
@@ -48,16 +50,16 @@ chmod +x installation.sh run.sh synchronize.sh
 ./installation.sh
 
 echo "🚀 Starting the TiddlyGit server"
-./run.sh &
-# Note: run.sh starts a background server, PID != $!
+./run.sh port=$PORT &
+SERVER_PID=$!
 sleep 1  # initial wait
 # Wait via port check + ensure server is available
 for i in {1..20}; do
-  curl -fs http://localhost:7070/ && break
+  curl -fs "http://localhost:$PORT/" > /dev/null && break
   sleep 1
   echo "⏳ Waiting for the server..."
 done
-curl -fs http://localhost:7070/ || { echo "❌ Server did not start"; exit 1; }
+curl -fs "http://localhost:$PORT/" > /dev/null || { echo "❌ Server did not start"; exit 1; }
 echo "✅ Server is up"
 
 # 4. 🧪 Conflict management test

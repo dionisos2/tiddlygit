@@ -81,12 +81,11 @@ To test that everything will work correctly on your computer, run the command `.
 ✅ Merge driver generated the following files:
 wiki/tiddlers/test-766755633815162457.tid
 Deleting /home/dionisos/projets/programmation/tiddlygit/test_tmp
-Terminated
 ✅ Test completed successfully
 🧹 Cleaning up...
-Killing tiddlywiki.jl
-PID not found
 ```
+
+The test server listens on port 7171, so `test.sh` can run while your own server is running.
 
 If the test doesn't complete successfully, please verify the dependencies, and then create an issue.
 
@@ -189,6 +188,6 @@ git config credential.helper 'cache --timeout=3600'
 ## Starting the server
 
 Then start the server with `run.sh` and open http://localhost:7070/ in a web browser.
-(you can change the port in run.sh)
+(you can change the port with `./run.sh port=8080`)
 
 While you are working on your wiki, you can click the button with a GitHub icon to synchronize your work with the remote repository.
