@@ -21,8 +21,14 @@ fail() {
 git config merge.tiddly-merge.name "merge for TiddlyWiki tiddler files"
 git config merge.tiddly-merge.driver "./tiddly-merge.py %O %A %B %P"
 
-git add --all
-git commit -m"Synchronize with script"
+# Everything must be committed before merging: a failed merge is cancelled and
+# its untracked files are removed (see below), so would be the changes left
+# uncommitted
+git add --all || fail "git add"
+if ! git diff --cached --quiet
+then
+	git commit -m"Synchronize with script" || fail "git commit"
+fi
 git fetch || fail "git fetch"
 
 git merge --no-edit

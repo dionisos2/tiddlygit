@@ -127,6 +127,34 @@ test("a conflict that cannot be resolved cancels the merge and makes the synchro
   assert.equal(read("bob", "PlanningDionisos.tid"), tid(planning({ text: "bob text" })));
 });
 
+test("the changes that cannot be committed stop the synchronization before merging, and are kept", () => {
+  const notes = (clone) => path.join(root, clone, "wiki/notes.txt");
+  fs.writeFileSync(notes("alice"), "alice\n");
+  assert.equal(synchronize("alice").status, 0);
+
+  // A file git cannot read makes "git add" fail, nothing is committed
+  fs.writeFileSync(notes("bob"), "bob\n");
+  write("bob", "NewTiddler.tid", tid({ title: "NewTiddler", text: "not committed yet" }));
+  write("bob", "Unreadable.tid", tid({ title: "Unreadable" }));
+  fs.chmodSync(file("bob", "Unreadable.tid"), 0o000);
+  const result = synchronize("bob");
+  assert.equal(fs.existsSync(file("bob", "Unreadable.tid")), true, "the files not committed are kept");
+  fs.chmodSync(file("bob", "Unreadable.tid"), 0o644);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout, /Synchronization failed: git add/);
+  assert.equal(read("bob", "NewTiddler.tid"), tid({ title: "NewTiddler", text: "not committed yet" }));
+  assert.equal(fs.readFileSync(notes("bob"), "utf8"), "bob\n");
+});
+
+test("a commit refused by a hook stops the synchronization before merging", () => {
+  fs.writeFileSync(path.join(root, "bob/.git/hooks/pre-commit"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  write("bob", "PlanningDionisos.tid", tid(planning({ "current-user": "Bob" })));
+  const result = synchronize("bob");
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout, /Synchronization failed: git commit/);
+});
+
 test("the result of the synchronization does not depend on notify-send", () => {
   fs.writeFileSync(path.join(root, "bin/notify-send"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
   write("alice", "PlanningDionisos.tid", tid(planning({ "current-user": "Alice" })));
