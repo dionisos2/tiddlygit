@@ -113,12 +113,21 @@ installation.sh
 
 ## Update
 
+Once, add TiddlyGit as the `upstream` remote:
+
 ```
 git remote add upstream https://github.com/dionisos2/tiddlygit.git
-git fetch upstream
-git merge upstream/master
-update.sh
 ```
+
+Then, to update, commit (or synchronize) your changes and run:
+
+```
+./upgrade.sh
+```
+
+It asks before stopping the server (and does nothing if you refuse), merges `upstream/master`, then runs `update.sh` to install the new version of the plugins. Restart the server afterwards. If the merge fails, resolve the conflicts, commit, then run `./update.sh` and restart the server.
+
+On the other computers using the same wiki, the update arrives with the next synchronization, but the plugins are not versioned: run `./kill_tiddlygit.sh`, `./update.sh`, then restart the server.
 
 ### If git refuses to merge unrelated histories
 
