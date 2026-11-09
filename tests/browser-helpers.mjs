@@ -54,6 +54,8 @@ export class FakeServer {
     // Saves not answered while true, like an unreachable server
     this.unreachable = false;
     this.heldSaves = [];
+    // Changes refused while true, like during a synchronization
+    this.locked = false;
   }
 
   reachable() {
@@ -89,6 +91,10 @@ export class FakeServer {
           this.heldSaves.push(() => this.adaptor().saveTiddler(tiddler, callback));
           return;
         }
+        if (this.locked) {
+          reply(callback, "XMLHttpRequest error code: 503");
+          return;
+        }
         const fields = { ...tiddler.fields };
         delete fields.revision;
         this.set(fields);
@@ -106,8 +112,9 @@ export class FakeServer {
 export function startSyncer($tw, server) {
   const wiki = new $tw.Wiki();
   wiki.addTiddler({ title: "$:/config/SyncFilter", text: "[is[tiddler]] -[prefix[$:/config/]] -[prefix[$:/temp/]]" });
-  const syncer = new $tw.Syncer({ wiki, syncadaptor: server.adaptor(), logging: false, disableUI: true, pollTimerInterval: 600000 });
+  const syncer = new $tw.Syncer({ wiki, syncadaptor: server.adaptor(), logging: false, disableUI: true, pollTimerInterval: 600000, errorRetryInterval: 100 });
   pluginModule("keep-local-changes.js").keepLocalChanges(syncer);
+  pluginModule("synchronize.js").ignoreRefusedChanges(syncer);
   return { wiki, syncer };
 }
 

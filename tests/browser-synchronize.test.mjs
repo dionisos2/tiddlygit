@@ -11,6 +11,7 @@ import { useTiddlyWiki, FakeServer, startSyncer, stopSyncer, typeIn, pluginModul
 
 const tw = useTiddlyWiki();
 const STATE = "$:/temp/tiddlygit/synchronize";
+const SERVER_STATE = "$:/temp/tiddlygit/server";
 
 // A browser connected to a server, and the synchronization request it sends
 async function setup() {
@@ -222,4 +223,88 @@ test("the overlay can be removed before the end of the synchronization", async (
   findButton(widget).invokeActions(widget, {});
   assert.equal(wiki.getTiddler(STATE).fields.blocked, "no");
   assert.equal(wiki.getTiddler(STATE).fields.status, "running");
+});
+
+test("the page is blocked while the server synchronizes, even for a synchronization started elsewhere", async () => {
+  const { wiki, render } = wikiWithPlugin();
+  wiki.addTiddler({ title: SERVER_STATE, synchronizing: "yes" });
+  assert.match(render(`{{${OVERLAY}}}`).container.innerHTML, /class="tiddlygit-overlay"/);
+  wiki.addTiddler({ title: SERVER_STATE, synchronizing: "no" });
+  assert.equal(render(`{{${OVERLAY}}}`).container.textContent.trim(), "");
+});
+
+test("the page unblocked by hand stays unblocked until the next synchronization of the server", async () => {
+  const { wiki, render } = wikiWithPlugin();
+  pluginModule("synchronize.js").followServer(wiki);
+  wiki.addTiddler({ title: SERVER_STATE, synchronizing: "yes" });
+  const { widget } = render(`{{${OVERLAY}}}`);
+  findButton(widget).invokeActions(widget, {});
+  assert.equal(render(`{{${OVERLAY}}}`).container.textContent.trim(), "");
+
+  wiki.addTiddler({ title: SERVER_STATE, synchronizing: "no" });
+  await sleep(10);
+  wiki.addTiddler({ title: SERVER_STATE, synchronizing: "yes" });
+  await sleep(10);
+  assert.match(render(`{{${OVERLAY}}}`).container.innerHTML, /class="tiddlygit-overlay"/);
+});
+
+test("starting a synchronization blocks the page again after an unblocking by hand", async () => {
+  const { wiki, syncer, synchronize, state } = await setup();
+  try {
+    wiki.addTiddler({ title: STATE, status: "200", blocked: "no", dismissed: "yes" });
+    synchronize();
+    assert.equal(state().blocked, "yes");
+    assert.notEqual(state().dismissed, "yes");
+  } finally {
+    stopSyncer(syncer);
+  }
+});
+
+test("a change refused by the server during a synchronization is saved after, without error message", async () => {
+  const { server, wiki, syncer } = await setup();
+  const alerts = [];
+  syncer.logger.alert = (...args) => alerts.push(args.join(" "));
+  try {
+    server.locked = true;
+    typeIn(tw(), wiki, "typed while syncing");
+    await sleep(300);
+    assert.equal(server.text("Form"), "a");
+    server.locked = false;
+    await eventually(() => server.text("Form") === "typed while syncing", "the refused change was not sent again");
+    assert.deepEqual(alerts, []);
+  } finally {
+    stopSyncer(syncer);
+  }
+});
+
+test("the browser asks the server whether it synchronizes each time it polls it", async () => {
+  const { wiki, syncer } = await setup();
+  let synchronizing = true;
+  pluginModule("synchronize.js").pollServerState(wiki, syncer, (callback) => callback(null, { synchronizing }));
+  try {
+    syncer.syncFromServer();
+    await eventually(() => wiki.getTiddler(SERVER_STATE)?.fields.synchronizing === "yes", "the server state was not asked");
+    // A sync from the server asked while one runs is ignored by the syncer
+    await eventually(() => !syncer.forceSyncFromServer && syncer.numTasksInProgress === 0, "the syncer is still busy");
+    synchronizing = false;
+    syncer.syncFromServer();
+    await eventually(() => wiki.getTiddler(SERVER_STATE)?.fields.synchronizing === "no", "the server state was not updated");
+  } finally {
+    stopSyncer(syncer);
+  }
+});
+
+test("the server state is changed only when it changes, not to forget an unblocking by hand", async () => {
+  const { wiki, syncer } = await setup();
+  pluginModule("synchronize.js").pollServerState(wiki, syncer, (callback) => callback(null, { synchronizing: true }));
+  try {
+    syncer.syncFromServer();
+    await eventually(() => wiki.getTiddler(SERVER_STATE)?.fields.synchronizing === "yes", "the server state was not asked");
+    const changeCount = wiki.getChangeCount(SERVER_STATE);
+    syncer.syncFromServer();
+    await sleep(100);
+    assert.equal(wiki.getChangeCount(SERVER_STATE), changeCount);
+  } finally {
+    stopSyncer(syncer);
+  }
 });

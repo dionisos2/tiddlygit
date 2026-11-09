@@ -419,20 +419,43 @@ test("files changed by the script are loaded as soon as it ends", async () => {
   assert.equal(await server.getTiddler(TITLE), null);
 });
 
-test("the server does not write files while the script runs", async () => {
+test("the server refuses the tiddler changes while the script runs", async () => {
   const file = path.join(wikiDir, "tiddlers", "During sync.tid");
   const started = path.join(wikiDir, "started");
-  const script = writeScript(`touch "${started}"\nsleep 2\n[ -e "${file}" ] && echo written || echo untouched\n`);
+  const script = writeScript(`touch "${started}"\nsleep 2\n`);
   await startServer({ TIDDLYGIT_SYNC_SCRIPT: script });
 
   const pending = server.synchronize();
   await eventually(() => fs.existsSync(started), "the script did not start");
-  await server.putTiddler({ title: "During sync", text: "typed while syncing" });
-  const result = await (await pending).json();
+  const headers = { "X-Requested-With": "TiddlyWiki", "Content-Type": "application/json" };
+  const put = await fetch(server.url("/recipes/default/tiddlers/During%20sync"), {
+    method: "PUT", headers, body: JSON.stringify({ title: "During sync", text: "typed while syncing" }),
+  });
+  assert.equal(put.status, 503);
+  const del = await fetch(server.url("/bags/default/tiddlers/" + encodeURIComponent(TITLE)), { method: "DELETE", headers });
+  assert.equal(del.status, 503);
+  await (await pending).json();
 
-  assert.match(result.output, /untouched/);
+  assert.equal(fs.existsSync(file), false);
+  assert.notEqual(await server.getTiddler(TITLE), null);
+  // The browser sends its change again once the synchronization is over
+  await server.putTiddler({ title: "During sync", text: "typed while syncing" });
   await eventually(async () => (await tiddlerOnDisk(wikiDir, "During sync"))?.text === "typed while syncing",
-    "the change made during the synchronization was never saved");
+    "the change sent after the synchronization was not saved");
+});
+
+test("the server tells the browsers that a synchronization is running", async () => {
+  const started = path.join(wikiDir, "started");
+  const script = writeScript(`touch "${started}"\nsleep 1\n`);
+  await startServer({ TIDDLYGIT_SYNC_SCRIPT: script });
+  const status = async () => (await fetch(server.url("/tiddlygit/status"))).json();
+  assert.deepEqual(await status(), { synchronizing: false });
+
+  const pending = server.synchronize();
+  await sleep(300);
+  assert.deepEqual(await status(), { synchronizing: true }, "told before the script starts");
+  await pending;
+  assert.deepEqual(await status(), { synchronizing: false });
 });
 
 test("only one synchronization runs at a time", async () => {
@@ -444,23 +467,4 @@ test("only one synchronization runs at a time", async () => {
   const second = await server.synchronize();
   assert.equal(second.status, 409);
   assert.equal((await first).status, 200);
-});
-
-test("a tiddler deleted while the script runs stays deleted", async () => {
-  const started = path.join(wikiDir, "started");
-  const script = writeScript(`touch "${started}"\nsleep 2\n`);
-  await startServer({ TIDDLYGIT_SYNC_SCRIPT: script });
-
-  const pending = server.synchronize();
-  await eventually(() => fs.existsSync(started), "the script did not start");
-  const response = await fetch(server.url("/bags/default/tiddlers/" + encodeURIComponent(TITLE)), {
-    method: "DELETE", headers: { "X-Requested-With": "TiddlyWiki" },
-  });
-  assert.equal(response.status, 204);
-  await (await pending).json();
-  await eventually(async () => !fs.existsSync(path.join(wikiDir, "tiddlers", TITLE + ".tid")),
-    "the deleted tiddler file was not removed");
-  await sleep(1000);
-  assert.equal(await server.getTiddler(TITLE), null, "the deleted tiddler came back in the wiki");
-  assert.equal(await tiddlerOnDisk(wikiDir, TITLE), undefined, "the deleted tiddler came back on disk");
 });

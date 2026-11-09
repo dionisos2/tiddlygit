@@ -266,6 +266,13 @@ exports.pause = function() {
 };
 
 /*
+Whether the server writes are held (between pause() and resume())
+*/
+exports.isPaused = function() {
+	return writesHeld;
+};
+
+/*
 Rescan the tiddlers folder, then apply the held writes and restart the watcher
 */
 exports.resume = function() {

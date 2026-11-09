@@ -15,7 +15,7 @@ If your wiki is still in the old `Wikis/<name>/` layout used with Bob, see [Comi
 - start the server with the `run.sh`
 - navigate to http://127.0.0.1:7070/
 - press the "github" button - this will commit your changes, merge the changes of the other contributors and push them
-- the page is blocked during the synchronization (so that nothing you type is mixed up with the changes merged by git), an "Unblock anyway" button lets you get it back if it takes too long (if the synchronization has not started yet, because the browser cannot send its changes to the server, it is cancelled)
+- the page is blocked during the synchronization (so that nothing you type is mixed up with the changes merged by git), in every tab and browser connected to the server (within a few seconds for the others, and the server refuses their changes meanwhile, they are sent again after), an "Unblock anyway" button lets you get it back if it takes too long (if the synchronization has not started yet, because the browser cannot send its changes to the server, it is cancelled)
 - a notification tells you when the synchronization is done, the merged changes appear in the browser without reloading the page
 
 ## Notes

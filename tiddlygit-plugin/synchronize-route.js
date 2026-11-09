@@ -8,11 +8,16 @@ POST /tiddlygit/synchronize
 Runs the synchronization script (synchronize.sh at the root of the TiddlyGit
 repository, or $TIDDLYGIT_SYNC_SCRIPT) and responds with {code, output}.
 
+While a synchronization runs, GET /tiddlygit/status tells it (the browsers
+block their page, see synchronize.js), and while the script runs, the requests
+changing the wiki are refused (see lockChanges).
+
 \*/
 "use strict";
 
 var SETTLE_DELAY = 1500,
-	PENDING_SAVES_TIMEOUT = 10000;
+	PENDING_SAVES_TIMEOUT = 10000,
+	REFUSED_STATUS = 503;
 
 var running = false;
 
@@ -41,6 +46,33 @@ function runScript(script,callback) {
 		callback(code === null ? -1 : code,output);
 	});
 }
+
+exports.isRunning = function() {
+	return running;
+};
+
+/*
+Refuse the requests changing the wiki (saving or deleting a tiddler...) while
+the script runs, so that the wiki does not change while git does. The browsers
+send them again after.
+*/
+exports.lockChanges = function(server) {
+	var filesync = require("$:/plugins/dionisos/tiddlygit/filesync.js");
+	server.routes.forEach(function(route) {
+		var methods = route.methods || [route.method];
+		if(route === exports || methods.every(function(method) {return method === "GET" || method === "HEAD";})) {
+			return;
+		}
+		var handler = route.handler;
+		route.handler = function(request,response,state) {
+			if(filesync.isPaused()) {
+				state.sendResponse(REFUSED_STATUS,{"Content-Type": "text/plain"},"A synchronization is running");
+			} else {
+				handler.apply(this,arguments);
+			}
+		};
+	});
+};
 
 exports.handler = function(request,response,state) {
 	var filesync = require("$:/plugins/dionisos/tiddlygit/filesync.js");
