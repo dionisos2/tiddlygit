@@ -21,6 +21,7 @@ var fs = require("fs"),
 	path = require("path");
 
 var DEBOUNCE_DELAY = 200,
+	WATCH_RETRY_DELAY = 5000,
 	DRAFTS_FOLDER = "drafts";
 
 var logger = new $tw.utils.Logger("tiddlygit",{colour: "magenta"}),
@@ -110,10 +111,13 @@ Bring the wiki in line with the current content of a file
 */
 function reconcileFile(filepath) {
 	var tiddlerFile = null;
-	if(fs.existsSync(filepath) && fs.statSync(filepath).isFile()) {
-		try {
+	try {
+		if(fs.statSync(filepath).isFile()) {
 			tiddlerFile = $tw.loadTiddlersFromFile(filepath);
-		} catch(e) {
+		}
+	} catch(e) {
+		// A missing file is a deleted file, any other error leaves the wiki as it is
+		if(e.code !== "ENOENT") {
 			logger.log("Cannot read",filepath,e.message);
 			return;
 		}
@@ -154,31 +158,53 @@ function onFileEvent(filename) {
 	},DEBOUNCE_DELAY);
 }
 
-function listTiddlerFiles(folder) {
-	var result = [];
-	fs.readdirSync(folder,{withFileTypes: true}).forEach(function(entry) {
+/*
+Add the tiddler files of a folder (and its subfolders) to files, and the
+folders that cannot be read to unreadable
+*/
+function listTiddlerFiles(folder,files,unreadable) {
+	var entries;
+	try {
+		entries = fs.readdirSync(folder,{withFileTypes: true});
+	} catch(e) {
+		logger.log("Cannot read",folder,e.message);
+		unreadable.push(folder);
+		return;
+	}
+	entries.forEach(function(entry) {
 		var fullpath = path.join(folder,entry.name);
 		if(entry.isDirectory() && entry.name.charAt(0) !== ".") {
-			result.push.apply(result,listTiddlerFiles(fullpath));
+			listTiddlerFiles(fullpath,files,unreadable);
 		} else if(entry.isFile() && isTiddlerFileName(entry.name)) {
-			result.push(fullpath);
+			files.push(fullpath);
 		}
 	});
-	return result;
 }
 
 /*
-Reconcile every file of the tiddlers folder, and every tiddler whose file vanished
+Reconcile every file of the tiddlers folder, and every tiddler whose file
+vanished (but not the ones in a folder that cannot be read)
 */
 exports.rescan = function() {
-	var files = listTiddlerFiles(tiddlersPath());
+	var files = [],
+		unreadable = [];
+	listTiddlerFiles(tiddlersPath(),files,unreadable);
+	function isReadable(filepath) {
+		return unreadable.every(function(folder) {return filepath.indexOf(folder + path.sep) !== 0;});
+	}
 	Object.keys($tw.boot.files).forEach(function(title) {
 		var filepath = $tw.boot.files[title].filepath;
-		if(isInTiddlersFolder(filepath) && files.indexOf(filepath) === -1) {
+		if(isInTiddlersFolder(filepath) && isReadable(filepath) && files.indexOf(filepath) === -1) {
 			files.push(filepath);
 		}
 	});
-	files.forEach(reconcileFile);
+	files.forEach(function(filepath) {
+		try {
+			reconcileFile(filepath);
+		} catch(e) {
+			logger.log("Cannot reload",filepath,e.message);
+		}
+	});
 };
 
 /*
@@ -226,15 +252,45 @@ function saveDraftsInDraftsFolder(adaptor) {
 }
 
 /*
+Watch the tiddlers folder. The watcher fails on a folder that cannot be read
+(or that disappears while it scans it): it is then started again, and the
+changes it missed are rescanned.
+*/
+function watch() {
+	function retry(err) {
+		logger.log("Cannot watch",tiddlersPath() + ":",err.message);
+		setTimeout(function() {
+			watch();
+			if(!paused) {
+				exports.rescan();
+			}
+		},WATCH_RETRY_DELAY);
+	}
+	try {
+		watcher = fs.watch(tiddlersPath(),{recursive: true},function(eventType,filename) {
+			onFileEvent(filename);
+		});
+	} catch(e) {
+		watcher = {close: function() {}};
+		retry(e);
+		return;
+	}
+	watcher.on("error",function(err) {
+		try {
+			watcher.close();
+		} catch(e) {}
+		retry(err);
+	});
+}
+
+/*
 Start watching the tiddlers folder
 */
 exports.start = function() {
 	if(watcher || !$tw.syncer || !tiddlersPath()) {
 		return;
 	}
-	watcher = fs.watch(tiddlersPath(),{recursive: true},function(eventType,filename) {
-		onFileEvent(filename);
-	});
+	watch();
 	// Hold the writes of the filesystem adaptor while git runs
 	var adaptor = $tw.syncadaptor;
 	["saveTiddler","deleteTiddler"].forEach(function(method) {
@@ -276,7 +332,12 @@ exports.isPaused = function() {
 Rescan the tiddlers folder, then apply the held writes and restart the watcher
 */
 exports.resume = function() {
-	exports.rescan();
+	try {
+		exports.rescan();
+	} catch(e) {
+		// The server must write again whatever happens
+		logger.log("Cannot rescan the tiddlers folder:",e.message);
+	}
 	writesHeld = false;
 	var writes = heldWrites;
 	heldWrites = [];

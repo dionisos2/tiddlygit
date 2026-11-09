@@ -87,8 +87,11 @@ exports.handler = function(request,response,state) {
 		filesync.waitForPendingSaves(PENDING_SAVES_TIMEOUT,function() {
 			filesync.pause();
 			runScript(scriptPath(),function(code,output) {
-				filesync.resume();
-				running = false;
+				try {
+					filesync.resume();
+				} finally {
+					running = false;
+				}
 				state.sendResponse(200,{"Content-Type": "application/json"},JSON.stringify({code: code, output: output}));
 			});
 		});

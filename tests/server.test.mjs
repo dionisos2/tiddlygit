@@ -468,3 +468,22 @@ test("only one synchronization runs at a time", async () => {
   assert.equal(second.status, 409);
   assert.equal((await first).status, 200);
 });
+
+test("the server keeps working when the tiddlers folder cannot be read after the script", async () => {
+  const unreadable = path.join(wikiDir, "tiddlers", "unreadable");
+  const changed = path.join(wikiDir, "tiddlers", "Changed by git.tid");
+  const script = writeScript(`mkdir "${unreadable}"\nchmod 000 "${unreadable}"\nprintf 'title: Changed by git\\n\\nmerged' > "${changed}"\n`);
+  await startServer({ TIDDLYGIT_SYNC_SCRIPT: script });
+  try {
+    const response = await server.synchronize();
+    assert.equal(response.status, 200);
+    assert.equal((await server.getTiddler("Changed by git"))?.text, "merged", "the readable files are loaded anyway");
+    assert.deepEqual(await (await fetch(server.url("/tiddlygit/status"))).json(), { synchronizing: false });
+    await server.putTiddler({ title: "After sync", text: "saved" });
+    const saved = path.join(wikiDir, "tiddlers", "After sync.tid");
+    await eventually(() => fs.existsSync(saved) && /saved$/.test(fs.readFileSync(saved, "utf8")),
+      "the server does not write anymore");
+  } finally {
+    fs.chmodSync(unreadable, 0o755);
+  }
+});
