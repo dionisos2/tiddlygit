@@ -10,3 +10,5 @@ wiki/tiddlers/$__trashbin*
 wiki/tiddlers/$__config*
 wiki/tiddlers/$__StoryList.tid
 test_tmp
+# Tiddlers being edited (see tiddlygit-plugin/filesync.js)
+wiki/tiddlers/drafts/

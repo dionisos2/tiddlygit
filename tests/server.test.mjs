@@ -10,7 +10,7 @@
 
 import { test, beforeEach, afterEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import net from "node:net";
@@ -288,6 +288,29 @@ test("a tiddler that never needed .json is saved as .tid", async () => {
   await startServer();
   await server.putTiddler({ title: "Simple", text: "hello", tags: "a b" });
   await eventually(() => tiddlerFiles("Simple").join() === "Simple.tid", "the tiddler was not saved as .tid");
+});
+
+test("drafts are saved in a folder ignored by git", async () => {
+  await startServer();
+  await server.putTiddler({ title: "Draft of 'Note'", "draft.of": "Note", "draft.title": "Note", text: "typing" });
+  const drafts = path.join(wikiDir, "tiddlers", "drafts");
+  await eventually(() => fs.existsSync(drafts) && fs.readdirSync(drafts).length === 1, "the draft was not saved in the drafts folder");
+  assert.deepEqual(tiddlerFiles("Draft"), []);
+
+  const draftFile = path.relative(rootDir, path.join(drafts, fs.readdirSync(drafts)[0]));
+  const ignored = spawnSync("git", ["check-ignore", "--no-index", "-q", draftFile], { cwd: repoRoot });
+  assert.equal(ignored.status, 0, `${draftFile} is not ignored by git`);
+});
+
+test("a draft saved in the drafts folder is deleted with the draft", async () => {
+  await startServer();
+  await server.putTiddler({ title: "Draft of 'Note'", "draft.of": "Note", "draft.title": "Note", text: "typing" });
+  const drafts = path.join(wikiDir, "tiddlers", "drafts");
+  await eventually(() => fs.existsSync(drafts) && fs.readdirSync(drafts).length === 1, "the draft was not saved");
+  const response = await fetch(server.url("/bags/default/tiddlers/" + encodeURIComponent("Draft of 'Note'")),
+    { method: "DELETE", headers: { "X-Requested-With": "TiddlyWiki" } });
+  assert.equal(response.status, 204);
+  await eventually(() => !fs.existsSync(drafts) || fs.readdirSync(drafts).length === 0, "the draft file was not deleted");
 });
 
 // --- Loading files changed on disk -------------------------------------------

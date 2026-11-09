@@ -20,7 +20,8 @@ disk, so that a file being written by the server is never reloaded half-written.
 var fs = require("fs"),
 	path = require("path");
 
-var DEBOUNCE_DELAY = 200;
+var DEBOUNCE_DELAY = 200,
+	DRAFTS_FOLDER = "drafts";
 
 var logger = new $tw.utils.Logger("tiddlygit",{colour: "magenta"}),
 	watcher = null,
@@ -200,6 +201,27 @@ function keepJsonFiles(adaptor) {
 }
 
 /*
+Save the drafts in the drafts/ subfolder, ignored by git: a tiddler being
+edited when synchronizing must not be committed
+*/
+function saveDraftsInDraftsFolder(adaptor) {
+	var getTiddlerFileInfo = adaptor.getTiddlerFileInfo;
+	adaptor.getTiddlerFileInfo = function(tiddler,callback) {
+		getTiddlerFileInfo.call(adaptor,tiddler,function(err,fileInfo) {
+			if(!err && tiddler.hasField("draft.of")) {
+				var draftsFolder = path.join(tiddlersPath(),DRAFTS_FOLDER);
+				if(path.dirname(fileInfo.filepath) !== draftsFolder) {
+					fileInfo = $tw.utils.extend({},fileInfo,{
+						filepath: path.join(draftsFolder,path.basename(fileInfo.filepath))
+					});
+				}
+			}
+			callback(err,fileInfo);
+		});
+	};
+}
+
+/*
 Start watching the tiddlers folder
 */
 exports.start = function() {
@@ -223,6 +245,7 @@ exports.start = function() {
 		};
 	});
 	keepJsonFiles(adaptor);
+	saveDraftsInDraftsFolder(adaptor);
 	logger.log("Watching",tiddlersPath());
 };
 
