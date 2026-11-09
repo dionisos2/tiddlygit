@@ -491,6 +491,23 @@ test("files changed by the script are loaded as soon as it ends", async () => {
   assert.equal(await server.getTiddler(TITLE), null);
 });
 
+test("a tiddler moved by the script to a file of another format stays in that format", async () => {
+  const tiddlers = path.join(wikiDir, "tiddlers");
+  const tid = path.join(tiddlers, TITLE + ".tid");
+  // The same tiddler, as TiddlyWiki would save it in a .json file
+  const $tw = await bareTiddlyWiki();
+  const fields = $tw.loadTiddlersFromFile(tid).tiddlers[0];
+  const json = path.join(wikiDir, "moved.json");
+  fs.writeFileSync(json, JSON.stringify([fields], null, 4));
+  const script = writeScript(`mv "${json}" "${path.join(tiddlers, TITLE + ".json")}"\nrm "${tid}"\n`);
+  await startServer({ TIDDLYGIT_SYNC_SCRIPT: script });
+  await server.synchronize();
+
+  await server.putTiddler(planningFields({ "days-count": "5", modified: now() }));
+  await eventually(async () => (await tiddlerOnDisk(wikiDir, TITLE))?.["days-count"] === "5", "the change was not saved");
+  assert.deepEqual(tiddlerFiles(TITLE), [TITLE + ".json"]);
+});
+
 test("the server refuses the tiddler changes while the script runs", async () => {
   const file = path.join(wikiDir, "tiddlers", "During sync.tid");
   const started = path.join(wikiDir, "started");

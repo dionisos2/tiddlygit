@@ -102,6 +102,8 @@ function loadTiddler(fields,tiddlerFile) {
 		// The file was moved: remember where it is now
 		if(fileInfo && fileInfo.filepath !== tiddlerFile.filepath) {
 			fileInfo.filepath = tiddlerFile.filepath;
+			// The format may have changed too (see keepJsonFiles)
+			fileInfo.type = tiddlerFile.type;
 			fileInfo.hasMetaFile = tiddlerFile.hasMetaFile;
 		}
 		return;
